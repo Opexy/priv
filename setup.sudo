@@ -1,0 +1,12 @@
+MYPATH="`pwd`" 
+echo MYPATH=$MYPATH > /usr/local/bin/beginwork
+cat beginwork >>/usr/local/bin/beginwork
+chmod a+x /usr/local/bin/beginwork
+
+echo MYPATH=$MYPATH > /usr/local/bin/endwork
+cat endwork >> /usr/local/bin/endwork
+chmod a+x /usr/local/bin/endwork
+
+echo MYPATH=$MYPATH > /usr/local/bin/commitwork
+cat commitwork >> /usr/local/bin/commitwork
+chmod a+x /usr/local/bin/commitwork

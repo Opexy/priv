@@ -1,0 +1,3 @@
+pushd $MYPATH
+git push -u origin master
+popd

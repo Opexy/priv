@@ -1,0 +1,5 @@
+pushd $MYPATH
+git add -A
+COMMIT="`uname -r` `date`"
+git commit -m "$COMMIT"
+popd
