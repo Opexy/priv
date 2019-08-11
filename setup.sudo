@@ -10,3 +10,5 @@ chmod a+x /usr/local/bin/endwork
 echo MYPATH=$MYPATH > /usr/local/bin/commitwork
 cat commitwork >> /usr/local/bin/commitwork
 chmod a+x /usr/local/bin/commitwork
+
+#echo export NODE_PATH='/usr/lib/node_modules' >> ~/.bashrc
