@@ -1,6 +1,8 @@
 import numpy as np;
 import matplotlib.pyplot as plt;
 import cv2;
+import math;
+#import imutils
 from matplotlib.widgets import RectangleSelector, Slider, Button, RadioButtons, TextBox
 
 v = type('test', (object,), {})()
@@ -32,26 +34,34 @@ def text_rot_on_submit(val):
         v.slider_rot.set_val(newrot)
         rot_update()
 
+def rotate_bound(image, angle):
+    # grab the dimensions of the image and then determine the
+    # center
+    (h, w) = image.shape[:2]
+    (cX, cY) = (w / 2, h / 2)
+
+    # grab the rotation matrix (applying the negative of the
+    # angle to rotate clockwise), then grab the sine and cosine
+    # (i.e., the rotation components of the matrix)
+    M = cv2.getRotationMatrix2D((cX, cY), -angle, 1.0)
+    cos = np.abs(M[0, 0])
+    sin = np.abs(M[0, 1])
+
+    # compute the new bounding dimensions of the image
+    nW = int((h * sin) + (w * cos))
+    nH = int((h * cos) + (w * sin))
+
+    # adjust the rotation matrix to take into account translation
+    M[0, 2] += (nW / 2) - cX
+    M[1, 2] += (nH / 2) - cY
+
+    # perform the actual rotation and return the image
+    return cv2.warpAffine(image, M, (nW, nH), borderMode=cv2.BORDER_CONSTANT, borderValue=(255,255,255))
+
 def rot_update():
     print(f"old rotation: {v.old_rot_val}")
     print(f"new rotation: {v.rot_val}")
-
-    rows, cols = v.thumb.shape[:2]
-    srcTri = np.array([(0,0),(cols-1,0),(0,rows-1)], np.float32)
-
-    dstTri = np.array([(cols*0.0,rows*0.33),(cols*0.85,rows*0.25), (cols*0.15,rows*0.7)],np.float32)
-
-    # Affine Transformation
-    warp_mat = cv2.getAffineTransform(srcTri,dstTri)   # Generating affine transform matrix of size 2x3
-    dst = cv2.warpAffine(v.thumb,warp_mat,(cols,rows))     # Now transform the image, notice dst_size=(cols,rows), not (rows,cols)
-
-    # Image Rotation
-    center = (cols/2,rows/2)                           # Center point about which image is transformed
-    angle = -v.rot_val                                 # Angle, remember negative angle denotes clockwise rotation
-    scale = 0.6                                        # Isotropic scale factor.
-
-    rot_mat = cv2.getRotationMatrix2D(center,angle,scale) # Rotation matrix generated
-    v.dst_rot = cv2.warpAffine(v.thumb,rot_mat,(cols,rows))     # Now transform the image wrt rotation matrix
+    v.dst_rot = rotate_bound(v.thumb, -v.rot_val)
     v.ax_dst.imshow(v.dst_rot)
 
     v.old_rot_val = v.rot_val
