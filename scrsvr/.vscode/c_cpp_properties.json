@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/lib/x86_64-linux-gnu/wx/include/gtk3-unicode-3.1-unofficial3"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/local/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++20"
+        }
+    ],
+    "version": 4
+}
