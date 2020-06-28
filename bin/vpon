@@ -1,0 +1,19 @@
+#!/usr/bin/bash
+sudo mkdir -p /etc/netns/vpnns 
+sudo cp /run/systemd/resolve/resolv.conf /etc/netns/vpnns/resolv.conf
+
+sudo ip netns add vpnns
+sudo ip netns exec vpnns ip link set lo up
+sudo ip link add link wlp41s0 vl0 type ipvlan mode l2
+sudo ip link set vl0 netns vpnns
+sudo ip netns exec vpnns ip addr add 192.168.0.123/24 dev vl0
+sudo ip netns exec vpnns ip link set vl0 up
+sudo ip netns exec vpnns ip route add default via 192.168.0.1
+
+sudo ip netns exec vpnns nohup /usr/sbin/expressvpnd --client-version 2.4.5 --client-build 2 &
+sleep 1
+sudo ip netns exec vpnns expressvpn connect
+sudo ln -sf /var/lib/expressvpn/resolv.conf /etc/netns/vpnns/resolv.conf
+sudo ln -sf ../run/systemd/resolve/resolv.conf /etc/resolv.conf
+sudo ip netns exec vpnns su -c "nohup firefox -private >/dev/null 2>&1 &" -w "DISPLAY" $USER
+sudo ip netns exec vpnns su - -w "DISPLAY" $USER

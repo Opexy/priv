@@ -1,0 +1,45 @@
+#sudo npm install jquery -g
+#sudo npm install bootstrap -g
+#sudo npm install popper.js -g
+#sudo npm install esprima -g
+#sudo npm install escodegen -g
+#sudo npm install moo -g
+
+#bootstrap
+ln -s /usr/local/lib/node_modules/bootstrap/LICENSE licenses/bootstrap.LICENSE
+ln -s /usr/local/lib/node_modules/bootstrap/dist/js/bootstrap.js js/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/js/bootstrap.js.map js/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/js/bootstrap.min.js js/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/js/bootstrap.min.js.map js/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/css/bootstrap.css css/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/css/bootstrap.css.map css/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/css/bootstrap.min.css css/
+ln -s /usr/local/lib/node_modules/bootstrap/dist/css/bootstrap.min.css.map css/
+ln -s /usr/local/lib/node_modules/jquery/dist/jquery.js js/
+ln -s /usr/local/lib/node_modules/jquery/dist/jquery.min.js js/
+
+
+#popper.js
+#Missing license
+ln -s /usr/local/lib/node_modules/popper.js/dist/umd/popper.js js/
+ln -s /usr/local/lib/node_modules/popper.js/dist/umd/popper.js.map js/
+ln -s /usr/local/lib/node_modules/popper.js/dist/umd/popper.min.js js/
+ln -s /usr/local/lib/node_modules/popper.js/dist/umd/popper.min.js.map js/
+
+#jquery
+ln -s /usr/local/lib/node_modules/jquery/LICENSE.txt licenses/jquery.LICENSE.txt
+ln -s /usr/local/lib/node_modules/jquery/dist/jquery.js js/
+ln -s /usr/local/lib/node_modules/jquery/dist/jquery.min.js js/
+
+#esprima
+ln -s /usr/local/lib/node_modules/esprima/LICENSE.BSD licenses/esprima.LICENSE.BSD
+ln -s /usr/local/lib/node_modules/esprima/dist/esprima.js js/
+
+#escodegen
+ln -s /usr/local/lib/node_modules/escodegen/LICENSE.BSD licenses/escodegen.LICENSE.BSD
+ln -s /usr/local/lib/node_modules/escodegen/escodegen.browser.js js/
+ln -s /usr/local/lib/node_modules/escodegen/escodegen.browser.min.js js/
+
+#moo
+ln -s /usr/local/lib/node_modules/moo/LICENSE licenses/moo.LICENSE
+ln -s /usr/local/lib/node_modules/moo/moo.js js/moo.js
