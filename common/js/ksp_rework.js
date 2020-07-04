@@ -1,5 +1,6 @@
 'use strict';
 const assert = console.assert;
+const pathcat = (a, b)=> a?a+"."+b:b
 function pathBuilder(hdlr){
   const pbhdlr = {
     get(tgt, prop, recv) {
@@ -57,7 +58,62 @@ function pathBuilder(hdlr){
   return mktgt([]).proxy;
 }
 
-const pathcat = (a, b)=> a?a+"."+b:b
+class props{
+  static patharr(path){
+    if(Array.isArray(path))
+     return path;
+    else {
+     assert(typeof path === 'string')
+     return path.split('.');
+  }}
+  constructor(parent = undefined, propname = undefined){
+    if(parent)this.parent = parent;
+    if(propname)this.propname = propname;
+  }
+  get props(){return this.mProps;}
+  set props(value){this.mProps = value;}
+  get val(){return this.value;}
+  set val(val){this.value = val;}
+  prop(path, value){
+    let patharr = props.patharr(path);
+    if(patharr.length === 0) {
+      if(value !== undefined) {
+        //setter
+        for(let iter = this, parent = iter.parent; parent;
+          iter = iter.parent, parent = parent.parent){
+          if(!parent?.props?.[iter.propname]) {
+            if(!parent.props) parent.props = {};
+            parent.props[iter.propname] = iter;
+          }
+          else break;
+        }
+        this.value = value;
+      }
+      return this;
+    }
+    else {
+      let propname = patharr[0];
+      let iter = this.props?.[propname];
+      if(!iter){
+        iter = new props(this, propname);
+      } else {
+        console.log(iter);
+      }
+      return iter.prop(patharr.slice(1), value);
+    }
+  }
+}
+
+function pprop(tgt){
+  tgt = new props();
+  return pathBuilder({root:tgt, 
+    onSet(path, val){tgt.prop(path.map(x=>x.kstr), val); return true;},
+    actions:{
+      val(val){return tgt.prop(this.path.map(x=>x.kstr), val).val},
+      props(val){return tgt.prop(this.path.map(x=>x.kstr)).props}}
+  })
+}
+
 const flatobj = (obj, cb) => {
   let objpath = [];
   let evalnext = function evalnext(){
