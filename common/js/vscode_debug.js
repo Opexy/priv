@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 let argv = require('yargs') // eslint-disable-line
-let argv = require('~/priv/common/js/utils.js')
   .scriptName("Vscode Debug Launcher")
   .usage('$0 [args]')
   .option('verbose', {
@@ -33,22 +32,28 @@ const shell = require('shelljs');
 const glob = require('glob');
 const path = require('path');
 const fs = require('fs');
-const build = require('./cfgspec');
-const { resolve } = require('path');
-const { isNullOrUndefined } = require('util');
-const { start } = require('repl');
-const { string, showHidden } = require('yargs');
-const { createSecretKey } = require('crypto');
 const assert = console.assert;
 const fread = file=>fs.readFileSync(file, {encoding:'utf8', flag:'r'})
 const fext = file=>path.extname(file)
 
+const keySpace = require('~/priv/common/ksp_rework.js')
 const rex_slash_str = `(${/\/\*dbg(.*?)\*\//.source.slice(1,-1)})|` +
                    `(${/\/\/dbg(.*?)$/.source.slice(1, -1)})`
 const rex_slash = new RegExp(re_slash_str, 'g');
 const rex_pound_str = `(${/^\s.*#dbg(.*?)$/.source.slice(1, -1)})`
 const rex_pound = new RegExp(re_pound_str, 'g');
 const spec_lines = (txt,re) => txt.matchAll(re).map(x=>(x[2]??x[4]).trim()).join('\n')
+
+const workspaceFolder = argv.workspaceFolder ?? ".";
+
+class Source extends Key({properties:{
+  
+}}){
+  
+}
+
+//const build = require('./cfgspec');
+
 
 /*
 const rex_debug_target = /^debug\s+(\w+)\s+(.*)$/
@@ -61,200 +66,80 @@ function fspec(file){
                  'h':rex_slash, 'hh':rex_slash, 'hpp':rex_slash}
   let spec = spec_lines(filetxt, [fext(file)]);
   if(spec){
-    spec = JSON.parse(spec);
+    specer = new Function("bsfile", "env", spec);
   }
   else
     spec = undefined;
   return spec;
 }
-
-const workspaceFolder = argv.workspaceFolder;
-
-// target flow
-var DepGraph = require('dependency-graph').DepGraph;
-var deps = new DepGraph();
-tgts = {};
-srcs = {};
-globalThis.mktgt = function mktgt(tgtname, ...tgtdeps){
-  let _mktgt = name=>{
-    let ret = tgts[name];
-    if(!ret){
-      ret = {name, type:name.startsWith("lib")?"lib":"exe", srcs:{}};
-      tgts[name] = ret;
-      deps.addNode(name);
+const rex_flags = /(-O|-D|-U|-I|-L|-l|-std|-g|-flto|-fPIC|-pthread)((.*)=?(.*))/
+class CompilerContext{
+  optimization = {};
+  define={};
+  undef={};
+  include_dir={};
+  link_dir={};
+  link_lib={};
+  add_flags(flags, info){
+    let argv = [];
+    const set = (prop, val) => 
+      this[prop] = {idx:this.idx++, val, opt:argv[0], info}
+    const setkvp = (prop, key, val) => 
+      this[prop][key] = {idx:this.idx++, val, opt:argv[0], info}
+    const remove = (prop, key) => 
+      delete this[prop][key];
+    const flagproc = {
+      '-O':{proc(argv){
+        ctx.set("optimization", argv[2])}},
+      '-D':{proc(argv){
+        ctx.setkvp("define", argv[3], argv[4])
+        ctx.remove("undef", argv[3])
+      }},
+      '-U':{proc(argv){
+        ctx.setkvp("undef", argv[3])
+        ctx.remove("define", argv[3])
+      }},
+      '-I':{proc(argv){
+        ctx.setkvp("include_dir", argv[3])
+      }},
+      '-L':{proc(argv){
+        ctx.setkvp("link_dir", argv[3])
+      }},
+      '-l':{proc(ctx, argv){
+        ctx.setkvp("link_lib", argv[3])
+      }}
     }
-    return ret;
+    flags.forEach(elem=>{
+      argv = elem.trim().match(rex_flags);
+      flagproc[argv[1]]();
+    })
   }
-  let ret = _mktgt(tgtname);
-  tgtdeps.forEach(depname => {
-    let dep = _mktgt(depname);
-    deps.addDependency(tgtname, depname);
-  })
-  return ret;
-}
-function get_tgt(tgtname){
-  let ret = tgts[tgtname];
-  assert(ret);
-  return ret;
-}
-function add_src(srcfile){
-  let src = srcs[srcfile];
-  if(!src){
-    let relpath = path.relative(workspaceFolder, srcfile);
-    src = {name:path.basename(srcfile), type:fext(srcfile), path:relpath, tgts:{}}
-    srcs[srcfile] = src;
-
-    let spec = fspec(srcfile);
-    src.spec = spec;
-    if(spec?.build){
-      for(tgt in spec.build){
-        tgt_add_src(tgt, src);
-      }
-    } else if(spec?.debug){
-      for(tgt in spec.build){
-        tgt_add_src(tgt, src);
-      }
-    } else assert(false);
-  }
-  return src;
-}
-function tgt_add_src(tgtname, srcfile){
-  let src = add_src(srcfile);
-  let tgt = tgts[tgtname];
-  assert(tgt);
-  tgt.srcs[srcfile] = src;
-  src.tgts[tgtname] = tgt;
 }
 
-// Def Space
-function ksp() {
-  function obj_setkey(obj, key) {
-    let ki = key, kc=undefined;
-    while(ki) {
-      ki.subkeys.forEach(subkey=>{
-        if(subkey != kc)
-          delete obj[subkey.name]
-      })
-      obj[ki.name] = {value:ksp[ki.name]}
-      kc = ki;
-      ki = ki.parent;
-    }
-    return obj;
-  }
-  function setkey(parent, key){
-    let ptgt = parent.tgt;
-    let obj = {...ptgt.obj};
-    obj_setkey(obj, key);
-    let tgt = {cls:ptgt.cls, obj, cur:key};
-    let ret = new Proxy(tgt, ksp_hdlr);
-    tgt.proxy = ret;
-    return ret;
-  }
-  const methods = {
-    addOption()
-  }
-  const ksp_hdlr = {
-    get(tgt, prop, self){
-      if(prop === 'tgt')
-        return tgt;
-      let method = methods[prop];
-      if(method = methods[prop])
-        return ftn.bind(self);
-      let key = tgt.cls[prop]
-      if(key){
-        if(key.type === 'string')
-          return methods.setkey.bind(self, key)
-        else 
-          return setkey(self, key, undefined)
-      }
-    }
-  }
-  let ret = new Proxy({}, ksp_hdlr);
-  return ret;
-}
-let osp = new ksp();
-globalThis.ds = optionspace(
-  {
-    scope:{global:osp.default, target:osp.string, file:osp.string}},
-
-  }
-  ["opt:scope", "hidden", {subopts:[
-
-  ]}]:
-);
-
-ds.addOptions(
-  {
-    {option}
-  scope:{type:'hidden', default:"global", {type:'option', target:{type:'string', file:{type:'string'}}}},
-  compiler:{type:'hidden', clang:'',gcc:'',msvc:''},
-  //tools:{cc:'string', cxx:'string', ld:'string'},
-  arch:{all:'all', x64:'',arm:''},
-  build_type:{all:'all', release:'',debug:''},
-  filetype:{all:'all', c:'',cpp:''},
-  stage:{all:'all', compile:'',link:''}
+let compiler = new keySpace(), ksp=compiler.proto, bs = compiler.pb, 
+defs = ksp.setRuleKivo, xtr = ksp.valXstr;
+compiler.addKeys({
+  arch:["x64"],
+  opsys:["linux"],
+  buildtype:["release","debug"],
+  compiler:["clang", "gcc", "msvc"],
+  target: [ksp.DynamicKey()],
+  src: [ksp.DynamicKey()],
+  compilelink:[{compile:["c", "cpp"]}, "link"]
 })
+compiler.designMode = false;
 
-function parse_def(def){
-  let str = def;
-  let ret = {scope:undefined, op:undefined, arg:undefined, val:undefined, str:def}
-  scoper = {file:0, global:0, target:0}
-  for(scope in scoper) {
-    if(def.startsWith(scope+':')){
-      ret.scope = scope;
-      
-      ret.str = str = def.slice(scope.length+1);
-      break;
-    }
-  }
-  let terms = str.split('=');
-  ret.op = terms[0];
-  ret.val = terms.slice(1).join('=');
-  if(ret.op.startsWith('-O')){
-    ret.val = str.slice(2); ret.op = "-O";
-  }
-  else if(str.startsWith('-D')){
-    ret.arg = ret.op.slice(2); ret.op = ret.op.slice(0, 2);
-  }
-  else if(str.startsWith('-U')){
-    ret.arg = ret.op.slice(2); ret.op = ret.op.slice(0, 2);
-  }
-  else if(str.startsWith('-I')){
-    ret.val = ret.op.slice(2); ret.op = ret.op.slice(0, 2);
-  }
-  else if(str.startsWith('-L')){
-    ret.val = ret.op.slice(2); ret.op = ret.op.slice(0, 2);
-  }
-  else if(str.startsWith('-l')){
-    ret.val = ret.op.slice(2); ret.op = ret.op.slice(0, 2);
-  }
-  return ret;
-}
-function defs(scoper, deflist){
-  let ret = deflist.map(x=>parse_def(x));
-}
+defs(bs.clang, {cc:"clang-10", cxx:"clang++-10", ld:"clan"})
+defs(bs.c, {flags:["-std=c17"]})
+defs(bs.cpp, {flags:["-std=c++2a"]})
+defs(bs.compilelink, {flags: ["-pthread", "-fPIC"]})
+defs(bs.compilelink.debug, {flags:[`-DDEBUG`,`-g`,`-O0`]})
+defs(bs.compilelink.release, {flags:[`-DRELEASE`, '-Os', "-flto"]})
+defs(bs.linux.compile, {flags:["-I/usr/local/include", "-I/usr/include"]})
+defs(bs.linux.link, {flags:["-L/usr/local/lib", "-L/usr/lib", "-ldl", xtr`-L${outdir}`]})
+defs(bs.linux.link, {flags:["-lstdc++"]})
 
-file.set_target("libshink").fileflags("Mon");
-globalThis.bs = {};
-bs.compilers = {clang:{cc:"clang-10", cxx:"clang-10", ld:"clang-10"}}
-bs.compiler = bs.compilers.clang;
-bs.outdir = `build`
-bs.flags = {}
-
-defs("global.compiler", "-Dcc=clang-10 -Dcxx=clang-10, -Dld=clang-10") 
-
-bs.clang = {cc:"clang-10", cxx:"clang-10", ld:"clang-10"}
-bs.flags = {}
-bs.flags.c.opts = ["-std=c17"]
-bs.flags.cpp.opts = ["-std=c++2a"]
-bs.flags.opts = ["-pthread", "-fPIC"]
-bs.flags.include.opts = ["-I/usr/local/include", "-I/usr/include"]
-bs.flags.debug.opts = ["-DDEBUG", "-O0", "-g", "-pthread", "-fPIC"]
-bs.flags.release.opts = ["-DRELEASE", "-Os", "-flto", "-g", "-pthread", "-fPIC"]
-bs.flags.link.opts = ["-L/usr/local/lib", "-L/usr/lib", "-ldl"]
-bs.flags.link.debug.opts = [`-L${bs.outdir}/debug`]
-bs.flags.link.release.opts = [`-L${bs.outdir}/release`]
-bs.flags.link.hascpp.opts = ["-lstdc++"]
+console.log("---launch_config---\n")
 
 globalThis.dbgcfgs = {
   py(dbg){

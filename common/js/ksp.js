@@ -184,7 +184,13 @@ function ksp(spec) {
 ksp.Any = "_ANY_"
 ksp.Specific = "_SPECIFIC_"
 ksp.Specified = "_1_"
-
+ksp.meta_tostr = function(meta){
+  return JSON.stringify(meta, (key, val)=>{
+    if(!key)
+      return val;
+    else
+      return val.value;});
+}
 ksp.cls = class cls{
   constructor(){
     this.keys = {}; // name -> prev -> prev -> ..., Object
@@ -217,11 +223,7 @@ ksp.cls = class cls{
     return key;
   }
   emplaceMeta(meta){
-    let metastr = JSON.stringify(meta, (key, val)=>{
-      if(!key)
-        return val;
-      else
-        return val.value;});
+    let metastr = ksp.meta_tostr(meta);
     let ret = this.meta[metastr];
     if(!ret) {
       ret = Object.assign(new ksp.metaobj(), {meta, metastr, objs:{}});
@@ -280,7 +282,7 @@ ksp.objval_explicit = function(obj){
 ksp.metaobj = class metaobj{}
 ksp.meta_rel = function meta_rel(a, b){
   let ret = {
-    a_applies_to_b:'match', b_applies_to_a:'match',
+    a_complies_to_b:'match', b_complies_to_a:'match',
     details:{...a, ...b}, conditions:{}}
   
   for(let key in ret.details) {
@@ -292,7 +294,7 @@ ksp.meta_rel = function meta_rel(a, b){
         result.res = "match"
       } else {
         result.res = 'conditional'
-        ret.a_applies_to_b = 'conditional'
+        ret.a_complies_to_b = 'conditional'
         ret.conditions[key] = result;
       }
     }
@@ -324,8 +326,8 @@ ksp.meta_rel = function meta_rel(a, b){
         }
       }
       if(result.res === 'unmatched') {
-        if(enta)ret.b_applies_to_a = 'unmatched'
-        else ret.a_applies_to_b = 'unmatched'
+        if(enta)ret.b_complies_to_a = 'unmatched'
+        else ret.a_complies_to_b = 'unmatched'
       }
     }
   }
@@ -341,6 +343,34 @@ ksp.meta_match = function meta_match(meta, to_match){
     }})
   return ret;
 }
+ksp.query = function query(self, cb) {
+  let tgt = self.tgt, cls=tgt.cls, obj=tgt.obj;
+  let objmeta = ksp.obj_meta(obj);
+  let result = [];
+  let add_entry = (meta, obj)=>{
+    assert(meta === obj.meta);
+    let entry = {meta:meta, obj};
+    if(cb) entry = cb(entry);
+    if(entry)result.push(cb);
+  }
+  Object.values(cls.meta).forEach(meta=>{
+    let meta_rel = ksp.meta_rel(meta.meta, objmeta);
+    if(meta_rel.b_complies_to_a === 'match'){
+      Object.values(meta.objs).forEach(obj=>add_entry(meta, obj));
+    } else if(meta_rel.b_complies_to_a === 'conditional'){
+      let to_match = {};
+      for(let condkey in meta_rel.conditions){
+        to_match[condkey] = obj[condkey];
+      }
+      let list = ksp.meta_match(meta, to_match);
+      list.forEach(obj=>add_entry(meta, obj))
+    } else {
+      //console.log("not matching: " + meta.metastr)
+      //console.log("to: " + ksp.meta_tostr(objmeta))
+    }
+  })
+  return result;
+}
 
 // values: dontcare, specified_any, specified_specific, specified_query
 // subset: specified one...
@@ -354,7 +384,7 @@ let bs = ksp({
   "buildtype": ksp.options("release", "debug"),
   "compiler": ksp.options("clang", "gcc", "msvc"),
   "target": ksp.dynamicKey(),
-  "target.src": ksp.dynamicKey(),
+  "src": ksp.dynamicKey(),
 //  "target.targetHasCpp": ksp.findany("target.src", ),
   "compilelink": ksp.options("compile", "link"),
   "compilelink.compile": ksp.options("c", "cpp"),
@@ -374,47 +404,22 @@ bs.release = {flags:[`-L${bs.outdir}/release`]}
 
 // Bugged...
 bs.target('world').debug.compilelink = {flags:["-World"]}
-bs.target('hello').debug.compilelink = {flags:["-O0"]}
-bs.target('hello').src('helloworld.c').debug.compilelink = {flags:["-O3 -NOO!!!"]}
-bs.target('hello').src('ahelloworld.c').debug.compilelink = {flags:["-O3 -OO!!!"]}
+bs.target('hello').debug.compilelink = {flags:["-Hello"]}
+bs.target('hello').src('helloworld.c').debug.compilelink = {flags:["-helloworld.c"]}
+bs.target('hello').src('ahelloworld.c').debug.compilelink = {flags:["-ahelloworld.c"]}
 
 console.log("objs---")
 for(let x in bs.tgt.cls.strobj) console.log(x);
 console.log("meta---")
 for(let x in bs.tgt.cls.meta) console.log(x);
-ksp.query = function query(self, cb) {
-  let tgt = self.tgt, cls=tgt.cls, obj=tgt.obj;
-  let objmeta = ksp.obj_meta(obj);
-  let result = [];
-  let add_entry = (meta, obj)=>{
-    assert(meta === obj.meta);
-    let entry = {meta:meta, obj};
-    if(cb) entry = cb(entry);
-    if(entry)result.push(cb);
-  }
-  Object.values(cls.meta).forEach(meta=>{
-    let meta_rel = ksp.meta_rel(meta.meta, objmeta);
-    if(meta_rel.a_applies_to_b === 'match'){
-      Object.values(meta.objs).forEach(obj=>add_entry(meta, obj));
-    } else if(meta_rel.a_applies_to_b === 'conditional'){
-      let to_match = {};
-      for(let condkey in meta_rel.conditions){
-        to_match[condkey] = obj[condkey];
-      }
-      let list = ksp.meta_match(meta, to_match);
-      list.forEach(obj=>add_entry(meta, obj))
-    }
-  })
-  return result;
-}
 console.log("helloworld.c---")
-ksp.query(bs.target('world').src("helloworld.c"), function(entry){
+ksp.query(bs.target('hello').src("helloworld.c").debug.link, function(entry){
   console.log(JSON.stringify(entry.obj.vobj));
   return entry;
   // target applies to target*, file applies to file*, target & file applies to targetAnyfileAny.
   // one-rule: traverse x, x.base; two-rules: can use index; three-rules: 
   // x -> x.specified; y -> y.specified; z -> z.specified.
 })
-
+assert(false);
 
 // applies to {stage:compile, target:x, file:y, project:x, filetype:c}: x: bs.global.compile.flags[xyz]
