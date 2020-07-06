@@ -1,5 +1,38 @@
-'use strict';
-const assert = console.assert
+//#region Header
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory) /* global define */
+  } else if (typeof module === 'object' && module.exports) {
+    module.exports = factory()
+  } else {
+    root.moo = factory()
+  }
+}(this, function(){
+//#endregion header
+'use strict'
+const assert = console.assert;
+let ksp = {}
+// key addressable, 
+class GlobalObject{
+  static golist = [];
+  static gomap = {}
+  gMakeGlobal(){
+    let me = this.me;
+  }
+}
+
+
+
+ksp.unit_test = function unit_test(argv){
+  console.log(argv);
+}
+if(require.main === module) ksp.unit_test(process.argv);
+
+return ksp;
+}))
+
+/*
+
 function splitOnLast(str, sep){
   let pos = str.lastIndexOf('.');
   if(pos >= 0) {
@@ -423,3 +456,4 @@ ksp.query(bs.target('hello').src("helloworld.c").debug.link, function(entry){
 assert(false);
 
 // applies to {stage:compile, target:x, file:y, project:x, filetype:c}: x: bs.global.compile.flags[xyz]
+*/
