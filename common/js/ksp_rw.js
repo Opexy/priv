@@ -19,7 +19,16 @@ let {assert,isArray,isString,isObject,
 let Ptoxy = Symbol.for("Ptoxy");
 let Tgt = Symbol.for("Tgt");
 
-const SymbKeys = Symbol.for("SymbKeys");
+// Keys: Global Keys. // Search Keys Cached.
+// Keys: Search Keys. // Consolidate.
+// Keys: Kflow: Key as flowable.
+// We will have: Gloc // Global Local...
+// Each key may have different strings.
+// Unconsolidated Key (without Kgid) will try to find a global key.
+// Key object will have subkeys, relative subkeys.
+
+const SymbSelfKeys = Symbol.for("SymbSelfKeys");
+const SymbSubKeys = Symbol.for("SymbSubKeys");
 class Obj {
   static mko(){}
   constructor(){this[SymbKeys] = {}};
@@ -29,8 +38,8 @@ class Obj {
 }
 const mko = Obj.mko;
 
-class KeyOwner{
-
+class Objective{
+  addKey(key) {this[SymbKeys][key.kstr] = }
 }
 
 const SymbKstr = Symbol.for("SymbKstr")
