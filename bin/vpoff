@@ -1,6 +1,7 @@
 sudo ip netns exec vpnns expressvpn disconnect
 sudo killall expressvpnd
 sudo ip netns pids vpnns | sudo xargs kill
+sudo ip netns exec vpnns ip link delete vl0
 sudo ip netns delete vpnns
 pushd /etc
 sudo ln -sf ../run/systemd/resolve/stub-resolv.conf /etc/resolv.conf

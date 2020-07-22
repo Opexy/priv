@@ -5,455 +5,379 @@
   } else if (typeof module === 'object' && module.exports) {
     module.exports = factory()
   } else {
-    root.moo = factory()
+    root.ksp = factory()
   }
 }(this, function(){
 //#endregion header
-'use strict'
-const assert = console.assert;
-let ksp = {}
-// key addressable, 
-class GlobalObject{
-  static golist = [];
-  static gomap = {}
-  gMakeGlobal(){
-    let me = this.me;
+const assert = globalThis.assert = console.assert;
+const isArray = globalThis.isArray = Array.isArray;
+const isString = globalThis.isString = (x)=>typeof x === 'string';
+const isObject = globalThis.isObject = (x)=>typeof x === 'object';
+const sizeof = globalThis.sizeof = (x)=>x ? x.length ?? x.size ?? Object.keys(x).length ?? 0 : 0;
+
+function forEach(obj, ftn, ...args) {
+  if(obj === undefined) return;
+  obj = isObject(obj) ? obj : [obj];
+  if(obj.forEach) {
+    obj.forEach((val, key)=>ftn(val, key, ...args))
+  } else {
+    for(let key in obj) ftn(obj[key], key, ...args);
   }
+  //Object.keys(obj).forEach(x=>ftn(obj[x], x, ...args))
 }
-
-
-
-ksp.unit_test = function unit_test(argv){
-  console.log(argv);
+globalThis.forEach = forEach;
+function defProps(obj, defs, writable=false) {
+  for(let prop in defs) 
+    //if(defs[key]!==undefined)
+    Object.defineProperty(obj, prop, {value:defs[prop], writable});
 }
-if(require.main === module) ksp.unit_test(process.argv);
-
-return ksp;
-}))
-
-/*
-
-function splitOnLast(str, sep){
-  let pos = str.lastIndexOf('.');
-  if(pos >= 0) {
-    return [str.slice(0, pos), str.slice(pos+sep.length)];
-  }
-  else 
-    return [str];
-}
-
-function splitOnLast(str, sep){
-  let pos = str.lastIndexOf('.');
-  if(pos >= 0) {
-    return [str.slice(0, pos), str.slice(pos+sep.length)];
-  }
-  else 
-    return [str];
-}
-function objSort(obj, compare) {
-  return Object.fromEntries(Object.entries(obj).sort(compare));
-}
-
-function objMatch(src, test, matcher){
-  for(let key in test){
-    if(!matcher(key, src[key], test[key]))
-      return false;
-  }
-  return true;
-}
-
-function ksp(spec) {
-  function setkey(parent, key, value){
-    let ptgt = parent.tgt;
-    let cur = {key, value};
-    let obj = {...ptgt.obj, [key.name]:cur};
-    let tgt = Object.assign(function(){}, {cls:ptgt.cls, obj, cur});
-    let ret = new Proxy(tgt, ksp_hdlr);
-    tgt.proxy = ret;
-    return ret;
-  }
-
-  function obj_toString(obj){
-    let keylist = Object.values(obj).sort((a, b)=>a.key.idx - b.key.idx);
-    let keylist_obj = Object.fromEntries(keylist.map(entry=>{
-      let value = entry.value ?? entry.key.default_value;
-      return [entry.key.name, value];
-    }))
-    let ret = JSON.stringify(keylist_obj);
-    assert(ret != '{}');
-    return ret;
-  }
-  function obj_meta(obj){
-    let meta = {};
-    const addkey = (key, value)=>{
-      assert(!meta[key.name]);
-      meta[key.name] = {key, value};
+function traverse(obj, cb) {
+  let ctxt = {path:[]}
+  function trav(key, obj){
+    ctxt.path.push([key, obj]);
+    let res = cb.call(ctxt, obj, key);
+    if(res === 'next'){}
+    else {
+      if(isObject(obj)) {
+        for(key in obj) {
+          trav(key, obj[key]); // TODO 
+        }
+      }
     }
-    Object.values(obj).forEach(elem=>{
-      if(elem.value === ksp.Any){
-        addkey(elem.key, ksp.Any); // TODO: unless parent spec is specific.
-      } else {
-        if(elem.value === ksp.Specified) {
-          addkey(elem.key.parent, ksp.Specific);
-        }
-        else {
-          addkey(elem.key, ksp.Specific);
-        }
-      }
-    });
-    return objSort(meta, (a, b)=>a[1].key.idx - b[1].key.idx)
+    ctxt.path.pop();
   }
-  ksp.obj_meta = obj_meta;
-  const methods = {
-    clsAddSpec(self, spec){
-      let tgt = self.tgt;
-      let cls = tgt.cls;
-      for(let [key, keyspec] of Object.entries(spec)) {
-        if(tgt.cur)
-          key = tgt.cur.key.addChild(key);
-        else
-          key = cls.emplacePath(key);
-        key.setSpec(keyspec);
-      }
-    },
-    vkeyPerform(self, verb, vobj){
-      let mobj = methods._marshall(self, true);
-      let oldv = mobj.vobj;
-      let newv = self.tgt.cls.verbs[verb](self, verb, oldv, vobj);
-      if(newv !== undefined){
-        mobj.vobj = newv;
-      }
-      else {
-        mobj.vobj = undefined; // delete?
-      }
-      return newv;
-    },
-    // will marshall.
-    toString(self){
-      return methods._marshall(self).ostr;
-    },
-    _marshall(self, insert=false){
-      let tgt = self.tgt, cls=tgt.cls, obj=tgt.obj;
-      let ret = cls.marshalled.get(obj)
-      if(!ret) {
-        let ostr = obj_toString(obj);
-        let marshalled_obj = cls.strobj[ostr];
-        if(marshalled_obj){
-          obj = marshalled_obj;
-          ret = cls.marshalled.get(obj);
-          assert(ret.obj === obj);
-          tgt.obj = obj;
-        } else if(insert){
-          let meta = cls.emplaceMeta(obj_meta(obj));
-          ret = {obj, ostr, meta, vobj:undefined, marshalled:true};
-          cls.strobj[ostr] = obj;
-          cls.marshalled.set(obj, ret);
-          meta.objs[ostr] = ret;
-        } else {
-          ret = {obj, ostr, vobj:undefined, marshalled:false};
-        }
-      }
-      return ret;
-    }
+  trav(undefined, obj);
+}
+globalThis.traverse = traverse;
+function defOnce(obj, defs){defProps(obj, defs, false)}
+// applies to Map and WeakMap
+function mapval(coll, key, conf = old=>old){
+  let {get, set} = coll.get ? coll : {
+    get(key){return this[key]}, set(key, val){return this[key] = val;}
+  };
+  let oldv = get.call(coll, key);
+  let newv = oldv;
+  if(typeof conf === "function") {
+    newv = conf(oldv);
+  } else {
+    newv = conf;
   }
-  const ksp_hdlr = {
-    get(tgt, prop, self){
-      assert(tgt.proxy === self)
-      // vkey: key, toPrimitive: 
-      if(prop === Symbol.toPrimitive){
-        return self.toString();
-      }
-      if(prop === 'vobj') {
-        return methods._marshall(self).vobj;
-      }
+  if(newv !== oldv)
+    set.call(coll, key, newv);
+  return newv;
+}
+globalThis.mapval = mapval;
+globalThis.mapinit = (coll, key, nval) => mapval(coll, key, old=>old ?? nval?.() ?? nval)
+
+function pathBuilder(hdlr){
+  const pbhdlr = {
+    get(tgt, prop, recv) {
       if(prop === 'tgt')
         return tgt;
-      let method = methods[prop];
-      if(method)
-        return method.bind(null, self);
-      let key = tgt.cls.keys[prop]
-      if(key){
-        return setkey(self, key, null);
+      if(prop === Symbol.toPrimitive){
+        return hdlr[prop];
       }
-      if(tgt.design){
-        return clsAddKey(self, prop);
+      let action = hdlr?.actions?.[prop];
+      if(action)
+        return action.bind({tgt, pbp:tgt.pbp, prop})
+
+      if(prop === 'toString')
+        return Object.toString.call(this);
+      if(prop === 'toJSON')
+        return undefined;
+      
+      let cur = {kstr:prop, kval:undefined};
+      let pbp = [...tgt.pbp, cur];
+      let ntgt = mktgt(pbp);
+      if(hdlr.onGet) {
+        return hdlr.onGet(ntgt, tgt);
       }
-      else{
-        if(!tgt.cur){
-          return tgt.cls.props[prop];
-        }
-        else
+      return ntgt.proxy;
+    },
+    apply(tgt, recv, args) {
+      let last = tgt.last;
+      let kval = args.flat();
+      if(kval.length === 1) kval = kval[0];
+      let ntgt = mktgt([...tgt.pbp.slice(0,-1), {...last, kval}])
+      if(hdlr.onApply) {
+        return hdlr.onApply(ntgt, tgt, args);
+      }
+      return ntgt.proxy;
+    },
+    set(tgt, prop, value){
+      // dirty and simple
+      if(hdlr.onSet){
+        if(prop in {toString:1, toJson:1, tgt:1})
           assert(false);
+        let pbp = (prop === 'val')? tgt.pbp : [...tgt.pbp, {kstr:prop, kval:undefined}];
+        return hdlr.onSet.call(tgt, pbp, value);
       }
-    },
-    apply(tgt,self,args){
-      assert(tgt.cur);
-      assert(args.length === 1);
-      assert(args[0] !== undefined);
-      if(tgt.cls.marshalled.get(tgt.obj)) {
-        tgt.obj = {...tgt.obj}; // unmarshall this...
-        if(tgt.cur){
-          tgt.cur = tgt.obj[tgt.cur.key.name]
+      else assert(false);
+    }
+  }
+  class pbtgt extends Function{constructor(){super();}
+    get cur(){return this.last}
+    get last(){return this.pbp[this.pbp.length - 1]}
+  }
+  function mktgt(pbp){
+    let tgt = Object.assign(new pbtgt(), {hdlr, pbp});
+    tgt.proxy = new Proxy(tgt, pbhdlr);
+    return tgt;
+  }
+  return mktgt([]).proxy;
+}
+
+function mkSpec(spec){
+
+  const Any = "_Any_"
+  const Specific = "_Specific_"
+  const Specified = "_Specified_"
+
+  let keylist = {}
+  const addObj = (kstr, type, parkey)=>{
+    let key = mapval(keylist, kstr, (old)=>{assert(!old); return {type, kstr}});
+    keylist[kstr] = key;
+    key.idx = Object.keys(keylist).length - 1;
+    if(parkey) {
+      defOnce(key, {parkey});
+      if(!parkey.subkey) parkey.subkey  = {};
+      parkey.subkey[kstr] = key;
+    }
+    key.hassub = function hassub(keyb) {
+      let iter = keyb;
+      while(iter) {
+        if(iter.idx === this.idx) {
+          return true;
         }
+        iter = iter.parkey;
       }
-      tgt.cur.value = args[0];
-      return tgt.proxy;
-    },
-    set(tgt, prop, val, self){
-      if(prop in tgt.cls.keys)
-        self[prop].vkeyPerform('set', val);
-      else
-        tgt.cls.props[prop] = val;
-      return true;
-    }
-  }
-  let tgt = Object.assign(function(){}, 
-    {cls:new ksp.cls(), obj:{}, cur:undefined});
-  let ret = new Proxy(tgt, ksp_hdlr);
-  tgt.proxy = ret;
-  ret.clsAddSpec(spec);
-  return ret;
-}
-ksp.Any = "_ANY_"
-ksp.Specific = "_SPECIFIC_"
-ksp.Specified = "_1_"
-ksp.meta_tostr = function(meta){
-  return JSON.stringify(meta, (key, val)=>{
-    if(!key)
-      return val;
-    else
-      return val.value;});
-}
-ksp.cls = class cls{
-  constructor(){
-    this.keys = {}; // name -> prev -> prev -> ..., Object
-    this.tmps = {};
-    this.verbs = {set(pxy, verb, ov, nv){assert(ov === undefined);return nv;}};
-    this.props = {};
-    this.strobj = {};
-    this.marshalled = new Map(); // from obj to {obj, ostr, vkv}
-    this.meta = {};
-  }
-  emplacePath(path){
-    let [parent, name] = splitOnLast(path, ".");
-    if(!name) {
-      name = parent;
-      parent = undefined;
-    }
-    let key = this.keys[name];
-    if(key){
-      assert(key.path === path);
-    }
-    else {
-      key = new ksp.key({cls:this, parent, idx: this.length, name, path, default_value:undefined, keys:{}});
-      if(parent){
-        parent = this.emplacePath(parent);
-        parent.keys[name] = key;
-        key.parent = parent;
-      }
-      this.keys[name] = key;
+      return false;
     }
     return key;
   }
-  emplaceMeta(meta){
-    let metastr = ksp.meta_tostr(meta);
-    let ret = this.meta[metastr];
-    if(!ret) {
-      ret = Object.assign(new ksp.metaobj(), {meta, metastr, objs:{}});
-      this.meta[metastr] = ret;
-    }
-    return ret;
-  }
-  getKey(name){return this.keys[name]}
-  get length(){return Object.keys(this.keys).length;}
-}
-ksp.key = class key{
-  constructor(...spec){Object.assign(this, ...spec)}
-  setSpec(spec){
-    if(spec.type === "options" || spec.type === "dynamicKey") {
-      this.type = spec.type;
-      this.default_value = spec.default_value;
-      spec.options.forEach(optname=>{
-        let default_value = ksp.Specified;
-        let child = this.addChild(optname);
-        child.default_value = default_value;
-      });
+  const traverse = (spec, parkey)=>{
+    if(isArray(spec)) {
+      forEach(spec,kstr => {
+        assert(isString(kstr));
+        addObj(kstr, "Key", parkey);
+      })
+    } else if(isObject(spec)){
+      for(let kstr in spec) {
+        let childkey = addObj(kstr, "Key", parkey);
+        traverse(spec[kstr], childkey);
+      }
     } else {
       assert(false);
     }
   }
-  hassub(keyb){
-    for(let iter = keyb.parent; iter?.idx >= this.idx; iter = iter.parent){
-      if(iter.idx == this.idx) {
-        assert(iter === this);
-        return true;
-      }
-    }
-    return false;
-  }
-  addChild(childPath){
-    return this.cls.emplacePath(`${this.path}.${childPath}`);
-  }
-  isLeaf(){
-    return (this.type !== "dynamicKey") &&
-      (Object.entries(this.keys).length === 0)
-  }
-  getKey(name){return this.keys[name]}
-}
-ksp.options = function options(...args){
-  return {type:"options", default_value: ksp.Any, options:[...args]}
-}
-ksp.dynamicKey = function dynamicKey(...args){
-  return {type:"dynamicKey", default_value: ksp.Any, options:[...args]}
-}
-ksp.objval_explicit = function(obj){
-  if(!obj.explicit){
-    obj.explicit = obj.key.cls.tmps[obj.key.name];
-  }
-}
+  traverse(spec, undefined);
 
-ksp.metaobj = class metaobj{}
-ksp.meta_rel = function meta_rel(a, b){
-  let ret = {
-    a_complies_to_b:'match', b_complies_to_a:'match',
-    details:{...a, ...b}, conditions:{}}
-  
-  for(let key in ret.details) {
-    let enta = a[key], entb = b[key];
-    let result = {key:enta?.key ?? entb.key, enta, entb};
-    ret.details[key] = result;
-    if(enta && entb) {
-      if(enta.value === ksp.Any && entb.value === ksp.Any) {
-        result.res = "match"
-      } else {
-        result.res = 'conditional'
-        ret.a_complies_to_b = 'conditional'
-        ret.conditions[key] = result;
-      }
+  let rulekey = {};
+  let rulekeyMeta = {};
+  const pbhdlr = {
+    onGet(ntgt, otgt) {
+      assert(ntgt.cur.kstr in keylist); 
+      //ntgt.cur.key = keylist[ntgt.cur.kstr];
+      return ntgt.proxy;
+    },
+    actions:{toString(){
+      return this.tgt.toString()}
     }
   }
-  for(let key in ret.details){
-    let result = ret.details[key];
-    let {enta, entb} = result;
-    if(!enta || !entb) {
-      result.res = "unmatched"
-      let src_ent = enta?enta:entb;
-      let set_dst = dst_ent=>{
-        if(enta)result.entb = dst_ent;
-        else if(entb) result.enta = dst_ent;}
-      let dst = enta?b:a;
-      // check b for anything that is specific to keya
-      // check b for anything that is general to keya
-      for(key in dst) {
-        let dst_ent = dst[key];
-        if(src_ent.key.hassub(dst_ent.key)) {
-          // a is more general than b
-          //assert(src_ent.value === ksp.Any); // TODO: assert if parent is matched.
-          set_dst(dst_ent);
-          result.res = "match";
-        }
-        else if(dst_ent.key.hassub(src_ent.key)) {
-          //assert(dst_ent.value === ksp.Any);
-          set_dst(dst_ent);
-          result.res = "match";
-        }
-      }
-      if(result.res === 'unmatched') {
-        if(enta)ret.b_complies_to_a = 'unmatched'
-        else ret.a_complies_to_b = 'unmatched'
-      }
-    }
-  }
-  return ret;
-}
-ksp.meta_match = function meta_match(meta, to_match){
-  // todo: performance improvement.
-  let ret = [];
-  Object.values(meta.objs).forEach(obj=>{
-    if(objMatch(obj.obj, to_match, (key, src, test)=>
-      src?.value === test?.value)) {
-      ret.push(obj);
-    }})
-  return ret;
-}
-ksp.query = function query(self, cb) {
-  let tgt = self.tgt, cls=tgt.cls, obj=tgt.obj;
-  let objmeta = ksp.obj_meta(obj);
-  let result = [];
-  let add_entry = (meta, obj)=>{
-    assert(meta === obj.meta);
-    let entry = {meta:meta, obj};
-    if(cb) entry = cb(entry);
-    if(entry)result.push(cb);
-  }
-  Object.values(cls.meta).forEach(meta=>{
-    let meta_rel = ksp.meta_rel(meta.meta, objmeta);
-    if(meta_rel.b_complies_to_a === 'match'){
-      Object.values(meta.objs).forEach(obj=>add_entry(meta, obj));
-    } else if(meta_rel.b_complies_to_a === 'conditional'){
-      let to_match = {};
-      for(let condkey in meta_rel.conditions){
-        to_match[condkey] = obj[condkey];
-      }
-      let list = ksp.meta_match(meta, to_match);
-      list.forEach(obj=>add_entry(meta, obj))
-    } else {
-      //console.log("not matching: " + meta.metastr)
-      //console.log("to: " + ksp.meta_tostr(objmeta))
-    }
+  const jsonkval = obj=>JSON.stringify(obj, (key, val)=> {
+    if(key === 'key') return val? val.kval : val
+    else return val;
   })
-  return result;
+  function pbGetKs(pb) {
+    let rko = {};
+    if(pb?.tgt?.pbp) {
+      forEach(pb.tgt.pbp, (entry, idx)=>{let {kstr, ...kval} = entry;
+        assert(keylist[kstr]);
+        rko[kstr] = {key:keylist[kstr], ...kval, idx}});
+    } else {
+      if(isArray(pb)) {
+        let idx = 0;
+        forEach(pb, (entry)=>{
+          if(isString(entry))rko[entry] = {key:keylist[entry], idx:idx++};
+          else if(isObject(entry)) {
+            forEach(entry, (kval, kstr)=>{
+              if(!keylist[kstr])
+                assert(false);
+              rko[kstr] = {key:keylist[kstr], kval, idx:idx++}})
+          } else assert(false);
+        })
+      }
+    }
+    rko = Object.fromEntries(Object.entries(rko).sort((a,b)=>a[1].key.idx - b[1].key.idx));
+    let rkstr = jsonkval(rko);
+    let rk = rulekey[rkstr];
+    if(!rk) {
+      let rkmo = {};
+      Object.entries(rko).forEach(([key, entry])=>{
+        rkmo[key] = {key:entry.key, kval:entry.kval ? Specific : Any}; // key idx?
+      })
+      let rkmstr = jsonkval(rkmo);
+      let rkm = rulekeyMeta[rkmstr];
+      if(!rkm){
+        rkm = {rkmstr, rkmo, rk:{}};
+      }
+      rk = {rkstr, rko, rkm, rule:[]}
+    }
+    return rk;
+  }
+  function ksAddVal(pb, roval){
+    let rk = pbGetKs(pb), rkstr = rk.rkstr, rkm = rk.rkm, rkmstr = rkm.rkmstr;
+    rulekey[rkstr] = rk;
+    rulekeyMeta[rkmstr] = rkm;
+    rkm.rk[rkstr] = rk;
+
+    let rule = {rk, roval}
+    rk.rule.push(rule);
+  }
+
+  function meta_rel(a, b){
+    //assert((a.rt === 'inout') && (b.rt === 'inout'));
+    let ret = {
+      a_complies_to_b:'match', b_complies_to_a:'match',
+      details:{...a, ...b}, conditions:{}}
+    
+    for(let key in ret.details) {
+      let enta = a[key], entb = b[key];
+      let result = {key:enta?.key ?? entb.key, enta, entb};
+      ret.details[key] = result;
+      if(enta && entb) {
+        if(enta.kval === Any && entb.kval === Any) {
+          result.res = "match"
+        } else {
+          result.res = 'conditional'
+          ret.a_complies_to_b = 'conditional'
+          ret.b_complies_to_a = 'conditional'
+          ret.conditions[key] = result;
+        }
+      }
+    }
+    for(let key in ret.details){
+      let result = ret.details[key];
+      let {enta, entb} = result;
+      if(!enta || !entb) {
+        result.res = "unmatched"
+        let src_ent = enta?enta:entb;
+        let set_dst = dst_ent=>{
+          if(enta)result.entb = dst_ent;
+          else if(entb) result.enta = dst_ent;}
+        let dst = enta?b:a;
+        // check b for anything that is specific to keya
+        // check b for anything that is general to keya
+        for(key in dst) {
+          let dst_ent = dst[key];
+          if(src_ent.key.hassub(dst_ent.key)) {
+            // a is more general than b
+            //assert(src_ent.value === ksp.Any); // TODO: assert if parent is matched.
+            set_dst(dst_ent);
+            result.res = "match";
+          }
+          else if(dst_ent.key.hassub(src_ent.key)) {
+            //assert(dst_ent.value === ksp.Any);
+            set_dst(dst_ent);
+            result.res = "match";
+          }
+        }
+        if(result.res === 'unmatched') {
+          if(enta)ret.b_complies_to_a = 'unmatched'
+          else ret.a_complies_to_b = 'unmatched'
+        }
+      }
+    }
+    return ret;
+  }
+  function objMatch(src, test, matcher){
+    for(let key in test){
+      if(!matcher(key, src[key], test[key]))
+        return false;
+    }
+    return true;
+  }
+  
+  function meta_match(rkm, to_match){
+    // todo: performance improvement.
+    let ret = [];
+    Object.values(rkm.rk).forEach(rk=>{
+      if(objMatch(rk.rko, to_match, (key, src, test)=>
+        src?.kval === test?.kval)) {
+        ret.push(rk);
+      }})
+    return ret;
+  }
+  function query(pb, cb) {
+    let rk = pbGetKs(pb), rko = rk.rko;
+    let result = [];
+    console.log("querying for: " + rk.rkstr)
+    let add_entry = (rkm, rk)=>{
+      assert(rkm === rk.rkm);
+      rk.rule.forEach(rule=>{
+        let entry = {rkm, rk, rule, roval:rule.roval};
+        if(entry) entry = cb(entry)
+        if(entry) result.push(entry);
+      })
+    }
+    Object.values(rulekeyMeta).forEach(rkm=>{
+      let rel = meta_rel(rkm.rkmo, rk.rkm.rkmo);
+      // what we are looking for complies to candidate.
+      if(rel.b_complies_to_a === 'match'){
+        Object.values(rkm.rk).forEach(rk_match=>add_entry(rkm, rk_match));
+      } else if(rel.b_complies_to_a === 'conditional'){
+        let to_match = {};
+        for(let condkey in rel.conditions){
+          to_match[condkey] = rko[condkey];
+        }
+        let list = meta_match(rkm, to_match);
+        list.forEach(rk_match=>add_entry(rkm, rk_match))
+      } else {
+        //console.log("not matching: " + meta.metastr)
+        //console.log("to: " + ksp.meta_tostr(objmeta))
+      }
+    })
+    return result;
+  }
+  return {query, ksAddVal, keylist, pb: pathBuilder(pbhdlr)};
 }
+function unit_test(argv){
+  // Being able to Flow:
+  let {
+    query, ksAddVal:set, pb:xp} = mkSpec({
+    compilerRule:{
+      arch:["x64"],
+      buildtype:["release", "debug"],
+      compiler:["clang", "gcc", "msvc"],
+      outdir:{},
+      compilelink:{
+        compile:["c", "cpp"],
+        link:{}
+      },
+      target:{},
+      src:{},
+  }});
 
-// values: dontcare, specified_any, specified_specific, specified_query
-// subset: specified one...
-// x: unspecified.
-// specified not.
-// buildtype: specified...
-// 
+  //https://www.ohmanhua.com/16892/1/36.html
+  set(xp.outdir, "/home${xp.projpath}")
+  set(xp.clang, {cc:"cc", cxx:"clang-10", ld:"clans-10"})
+  set(xp.c, {flags:["-std=c17"]})
+  set(xp.cpp, {flags:["-std=c++2a"]})
+  set(xp.compilelink, {flags: ["-pthread", "-fPIC"]})
+  set(xp.compile, {flags:["-I/usr/local/include", "-I/usr/include"]})
+  set(xp.debug.compile, {flags:[`-DDEBUG`,`-g`,`-O0`]})
+  set(xp.debug.link, {flags:[`-DDEBUG`]})
+  set(xp.target('world').debug.compilelink, {flags:["-World"]})
+  set(xp.target('hello').debug.compilelink, {flags:["-Hello"]})
+  set(xp.target('hello').src('helloworld.c').debug.compilelink, {flags:["-helloworld.c"]})
+  set(xp.target('hello').src('ahelloworld.c').debug.compilelink, {flags:["-ahelloworld.c"]})
 
-let bs = ksp({
-  "arch": ksp.options("x64"),
-  "buildtype": ksp.options("release", "debug"),
-  "compiler": ksp.options("clang", "gcc", "msvc"),
-  "target": ksp.dynamicKey(),
-  "src": ksp.dynamicKey(),
-//  "target.targetHasCpp": ksp.findany("target.src", ),
-  "compilelink": ksp.options("compile", "link"),
-  "compilelink.compile": ksp.options("c", "cpp"),
-  // option, directory?
-});
+  query(xp.target('hello').src("helloworld.c").debug.link, function(entry){
+    console.log(JSON.stringify(entry.roval))
+    return entry;
+  });
+}
+if(require.main === module) unit_test(process.argv);
 
-bs.outdir = "/home/namespace"
-bs.clang = {cc:"cc", cxx:"clang-10", ld:"clang-10"},
-bs.compilelink = {flags:["-pthread", "-fPIC"]} // will pull only if buildstage is specified.
-bs.compile    = {flags:["-I/usr/local/include", "-I/usr/include"]}
-bs.c = {flags:["-std=c17"]}
-bs.cpp = {flags:["-std=c++2a"]}
-bs.debug.compile = {flags:[`-DDEBUG -g -O0`]}
-bs.debug.link = {flags:[`-L${bs.outdir}/debug`]}
-bs.release.compile = {flags:[`-Os`]}
-bs.release = {flags:[`-L${bs.outdir}/release`]}
-
-// Bugged...
-bs.target('world').debug.compilelink = {flags:["-World"]}
-bs.target('hello').debug.compilelink = {flags:["-Hello"]}
-bs.target('hello').src('helloworld.c').debug.compilelink = {flags:["-helloworld.c"]}
-bs.target('hello').src('ahelloworld.c').debug.compilelink = {flags:["-ahelloworld.c"]}
-
-console.log("objs---")
-for(let x in bs.tgt.cls.strobj) console.log(x);
-console.log("meta---")
-for(let x in bs.tgt.cls.meta) console.log(x);
-console.log("helloworld.c---")
-ksp.query(bs.target('hello').src("helloworld.c").debug.link, function(entry){
-  console.log(JSON.stringify(entry.obj.vobj));
-  return entry;
-  // target applies to target*, file applies to file*, target & file applies to targetAnyfileAny.
-  // one-rule: traverse x, x.base; two-rules: can use index; three-rules: 
-  // x -> x.specified; y -> y.specified; z -> z.specified.
-})
-assert(false);
-
-// applies to {stage:compile, target:x, file:y, project:x, filetype:c}: x: bs.global.compile.flags[xyz]
-*/
+return mkSpec;
+}))
