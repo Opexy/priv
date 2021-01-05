@@ -1,6 +1,5 @@
-const { get } = require('http');
-const { networkInterfaces } = require('os');
-const { syncBuiltinESMExports } = require('module');
+const { tokenize } = require('esprima');
+const { isFunction } = require('util');
 
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
@@ -13,147 +12,191 @@ const { syncBuiltinESMExports } = require('module');
 }(this, function(){
 'use strict';
 if(globalThis.module_ksp) return globalThis.module_ksp;
+let gg = globalThis;
+gg.esprima = require('esprima');
 let utils = require('./utils.js');
 let {assert,isArray,isString,isObject,
-  sizeof,mapval,mapinit,now,forEach,Pathflow, opflow} = utils;
-let Ptoxy = Symbol.for("Ptoxy");
-let Tgt = Symbol.for("Tgt");
+  sizeof,mapval,mapinit,now,forEach,Pathflow, opflow, mkcls} = utils;
 
-// Keys: Global Keys. // Search Keys Cached.
-// Keys: Search Keys. // Consolidate.
-// Keys: Kflow: Key as flowable.
-// We will have: Gloc // Global Local...
-// Each key may have different strings.
-// Unconsolidated Key (without Kgid) will try to find a global key.
-// Key object will have subkeys, relative subkeys.
+// Let's don't worry about running... running may involve c code.
+// Ns0 -- Name -> Class, Method, System, Role
 
-const SymbSelfKeys = Symbol.for("SymbSelfKeys");
-const SymbSubKeys = Symbol.for("SymbSubKeys");
-class Obj {
-  static mko(){}
-  constructor(){this[SymbKeys] = {}};
-  merge(src){}
-  get keys(){return this[SymKeys]}
-  addKey(){}
-}
-const mko = Obj.mko;
-
-class Objective{
-  addKey(key) {this[SymbKeys][key.kstr] = }
-}
-
-const SymbKstr = Symbol.for("SymbKstr")
-class AbstractKey{
-  constructor(parent, kty, key) {
-    this.parent = parent; this.kty = kty; this.key = key;
+function Ksp(){
+  let objs = {};
+  const {mkobj, mkrel} = {
+    mkobj(obj = {}){
+      assert(!obj.id); 
+      obj.id = ngsid; 
+      Object.defineProperty(obj, "self", {get(){return obj.aliasTo ?? obj}})
+      objs[obj.id] = obj;
+      return obj;
+    },
+    mkrel(spec){
+      return {spec, ustr:"{" + Object.entries(spec).map(([key, val])=>
+        (val?.self?.id) ?
+          `${key}.self.id:${val.self.id}`:
+          `${key}:${val}`).join(', ') + '}'};
+    }
+  };
+  let Rels = {
+    // Parent Name extent
+    Pne(parent, name) {
+      assert(parent.self.id);
+      return mkrel({reltype:"Pne", parent, name});
+    },
+    FieldAliasType(field, aliastype) {
+      let ret = mkrel({reltype:"FieldAlias", field, aliastype})
+      return ret;
+    }
   }
-  toStr(){assert(false);}
-  get kstr(){return this.toStr();}
-  get owner(){return this.parent ?? globalOwner}
-  
-}
-function toStr(x){return x?.toStr()??""}
+  let Rel = {
+    Rels, 
+    Emplace(relation){
+      let ret = Rel.Find(relation);
+      if(!ret) {
+        ret = Rel.Create(relation);
+      }
+      return ret;
+    },
 
-class StrKey extends AbstractKey{
-  constructor(parent, str) {
-    super(parent, "StrKey", str);
+    Create(relation, aliasTo = relation.aliasTo){
+      let ret = mkobj(relation);
+      ret.aliasTo = aliasTo??mkobj({heads:{[relation.ustr]:relation}, tails:{}});
+      for(let [pin, obj] of Object.entries(relation.spec)){
+        let tails = obj?.self?.tails;
+        if(tails)tails[relation.ustr] = ret;
+      }
+      relations[relation.ustr] = ret;
+      return ret;
+    },
+    Find(relation){
+      if(relation.ustr) return relations[relation.ustr];
+      else assert(false);
+    },
+    ParentsOf(relation, parents = {}){
+      Object.values(relation.heads).forEach(pne=>{
+        if(pne.spec.type === "Pne"){
+          parents[pne.spec.parent.id] = pne.spec.parent;
+        }})
+      return parents;
+    },
+    FindRelName(parents, name){
+      let parents = {...parents}, results = {}; 
+      let idx = 0;
+      let list = undefined;
+      for(let idx = 0; idx < (list = Object.keys(parents)).length; idx++){
+        let parent = list[idx];
+        let result = Rel.Find(Rels.Pne(parent, name));
+        if(result) 
+          results[result.id] = result;
+        Object.assign(parents, ParentsOf(list[idx]));
+      }
+      return results;
+    }
+  };
+  function mkPnePath(path){
+    if(path.length === 1) return path[0];
+    let [parent, name] = path;
+    assert(parent.id);
+    assert(isString(name));
+    let ret = Rel.Emplace(Rels.Pne(parent, name));
+    if(path.length > 2) {
+      return mkPnePath([ret, ...path.splice(2)])
+    } else {
+      return ret;
+    }
   }
-  toStr(){return toStr(parent) + `[${this.str}]`}
-}
-class IdxKey extends AbstractKey{
-  constructor(parent, idx) {
-    super(parent, "IdxKey", idx);
+  // A relation: 
+  //DefineRelation({type:"Relname", parent:"object", name:"str"})
+ 
+  const relations = {};
+  function pnedef(ksp, type, opts){
+    let ret = mkksp(mkPnePath(ksp.tgt.path)), {self} = ret;
+    self.type = type;
+    opts.forEach(cb=>{
+      if(isFunction(cb)) cb(ret);
+      else if(isObject(cb)) Object.assign(self, cb);
+    })
+    return self;
   }
-  toStr(){return toStr(parent) + `[${this.idx}]`}
-}
-
-function mko(proto, assigns){
-  function get(tgt, prop, recv) {
-    let ret = tgt[prop];
-    if(prop === Tgt) ret = tgt;
+  const staticMethods = {
+    Class(ksp, ...opts){
+      let kspClass = pnedef(ksp, "Class", opts);// do classes have to be root?
+      return kspClass;
+    },
+    Field(ksp, ...opts){
+      let field = pnedef(ksp, "Field", opts);
+      return field;
+    },
+    KeyField(pne, ...opts){
+      let field = Field(pne, {isKey:true}, ...opts);
+      return field;
+    },
+    RelField(pne, ...opts) {
+      let field = Field(pne, ...opts);
+      let aliastype = field.self?.aliastype;
+      if(!aliastype){
+        let aliastypes = Rel.FindRelName(field, name);
+        delete aliastypes[field.id];
+        delete aliastypes[field.self.id];
+        let aliastype = Object.values(aliastypes)[0];
+        if(!aliastype) {
+          // create something associated with root? TODO: wait until all to resolve.
+          let aliastype = Rel.Emplace(Rels.Pne(ksproot, name));
+        }
+      }
+      Rel.Emplace(Rels.FieldAliasType(field, aliastype));
+    }
+  }
+  const {Class, Field, KeyField, RelField} = staticMethods;
+  function onGet(tgt, prop){
+    if(!isString(prop)){return;}
+    let ret = staticMethods[prop];
+    if(ret) return ret;
+    if(prop ==='self') return tgt.path[0].self;
+    let {prepath, path} = tgt, ksp = path[0];
+    let ntgt = new Pathflow(tgt.hdlr).tgt;
+    path = [...path, prop];
+    if(path.length === 1){
+      let rel = Rel.Find(Rel.Pne(ksp, prop));
+      if(rel) {
+        prepath = [...(prepath ?? []), rel];
+        path = [rel];
+      }
+    }
+    Object.assign(ntgt, {prepath, path});
+    return ntgt.proxy;
+  }
+  function mkksp(relation) {
+    assert(relation.self.id);
+    let ret = new Pathflow({onGet});
+    ret.tgt.path = [relation];
     return ret;
   }
-  function set(tgt, prop, val){
-    tgt[prop] = val;
-    return true;
-  }
-  function has(tgt, prop){
-    return prop in tgt;
-  }
-  const proxyHandler = {get, set, has};
-  let tgt = Object.create(proto[Tgt]??proto);
-  Object.defineProperties(tgt, {
-    [Ptoxy]:{value: new Proxy(tgt, proxyHandler)}})
-  return tgt[Ptoxy];
+  var ksproot = mkobj({relations});
+  return mkksp(ksproot);
 }
 
-// List of evaluationary keys.
-// Key has to be 
-//#region Ksp
-class Ks {
-  constructor(kstr){this.kstr = kstr;}
+function unittest(){
+  let ksp = Ksp(), kspobj = ksp.self;
+  let {Class, KeyField, RelField} = ksp;
+  Class(ksp.Target, (Target)=>{
+    KeyField(Target.TargetName, {options:["string", "notnull"]})
+    RelField(Target.TargetSrc, "1.Many")
+  });
+  Class(ksp.TargetSrc, (TargetSrc)=>{
+    KeyField(TargetSrc.FsPath);
+    Relation(TargetSrc.Target);
+  })
+  
+  
+
+  console.log(Object.keys(kspobj.relations).join("\n"));
 }
-// items can be:
-function mkset(items){}
-function Ksp(){
-  // Root Level Functions: Schema Manipulation (add) -> Compilation
-
-  //NameFlow("Actor.id", ["ActorName", "Actor.Name"]);
-  // Object
-
-  function NameFlow(){
-    
-  }
-  
-  
-  
-  // Objcls([Member.id, ["MemberName", "Member.Name"], )
-  // Obj, field(X, ObjKey(Sorted, Random Access, ...), associate with ID) -> Associatte with (Obj.ID)
-  ksp= {NameFlow}
-  
-  return ksp;
+if (require.main === module) {
+  unittest();
 }
 
-function Travdo(schema, data) {
-  for(x in data) {
-  }
-}
-
-const sb = function SchemaBuilder(schema){
-  let ctxt = {};
-  let currentNode = {};
-  
-  let TravSchmeaBuilder = {
-    feed(key, obj){
-      if(key === ); if(typeof(obj)...)
-      return obj.forEach();
-    }
-  }
-  Travdo(TravSchmeaBuilder, schema);
-  return ctxt; 
-};
-sb.kf = opflow("keyfield", {
-  option:{}, 
-  string:{"":{notnull:{}, indexed:{}}}
-});
-sb.root = {};
-sb.addSchema = function addSchema(parent, schema){
-  if(typeof schema === 'object') {
-    if(schema?.tgt?.path) {
-      let def = schema.tgt.path.for
-    }
-  }
-  forEach(x in schema)
-  
-  //  list of options, 
-}
-
-Ksp.SchemaBuilder = SchemaBuilder;
-//#endregion Ksp
-
-// ksp: creates new Key Spaces
-
-let ksp = Ksp();
 
 
 globalThis.module_ksp = {Ksp};

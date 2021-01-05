@@ -43,3 +43,11 @@ ln -s /usr/local/lib/node_modules/escodegen/escodegen.browser.min.js js/
 #moo
 ln -s /usr/local/lib/node_modules/moo/LICENSE licenses/moo.LICENSE
 ln -s /usr/local/lib/node_modules/moo/moo.js js/moo.js
+
+#immutable
+ln -s /usr/local/lib/node_modules/immutable/LICENSE licenses/immutable.LICENSE
+ln -s /usr/local/lib/node_modules/immutable/dist/immutable.js js/
+
+#qs
+ln -s /usr/local/lib/node_modules/qs/LICENSE.md licenses/qs.LICENSE
+ln -s /usr/local/lib/node_modules/qs/dist/qs.js js/

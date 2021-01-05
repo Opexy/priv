@@ -1,0 +1,14 @@
+#source ~/emsdk/emsdk_env.sh
+#-I/opt/wasi-sdk/share/wasi-sysroot/include
+#-Wl,-L/opt/wasi-sdk/share/wasi-sysroot/lib/wasm32-wasi
+#-I~/wasi-libc/sysroot/include \
+#-Wl,-L~/wasi-libc/sysroot/lib/wasm32-wasi \
+#--no-standard-libraries \  
+
+clang --target=wasm32 -O0 -g -std=c++2a \
+-nostartfiles --sysroot ~/wasi-libc/sysroot \
+-I/home/diamond/emsdk/upstream/emscripten/system/include \
+-Wl,--no-entry -Wl,-z,stack-size=$[8 * 1024 * 1024] \
+-Wl,--import-memory \
+-Wl,-L/home/diamond/emsdk/upstream/emscripten/cache/wasm \
+ $@

@@ -1,0 +1,158 @@
+import apse_py;
+class Obj:
+  def __init__(self, *args, **argv):
+    self.addProps(*args, **argv);
+  def addProps(self, *args, **argv):
+    for arg in args:
+      self.__dict__.update(arg);
+    self.__dict__.update(argv or {});
+
+class Nse:
+  def __init__(self, parent):
+    self.nses = {};
+    self.parent = parent;
+  def isRoot(self):
+    return self.parent == None;
+  def setProc(self, **ftns):
+    for name in ftns:
+      __ftn = ftns[name]
+      self.__dict__[name] = lambda *args, __self=self, __ftn=__ftn, **kwargs:__ftn(__self, *args, **kwargs)
+
+Types = Obj();
+class BuiltinType(Obj):
+  def __init__(self, name, *args, **kwargs):
+    assert(name not in Types.__dict__);
+    super().__init__({"name":name}, *args, **kwargs);
+    Types.addProps({name:self});
+    
+BuiltinType("float32", {"cxx":"float"});
+BuiltinType("int32", {"cxx":"int32_t"});
+def parse_spec(str):
+  st_nse = [];
+  st_ast = [];
+  def st_push(nse, ast):
+    st_nse.append(nse);
+    st_ast.append(ast);
+  def st_pop():
+    return Obj(nse=st_nse.pop(), ast=st_ast.pop())
+
+  ctx = Obj();
+  ast1 = apse_py.ast1();
+  astroot = ast1.ingest(str).arr[0];
+  nseroot = Nse(None);
+  assert(astroot.str == ';');
+  
+  def nse_proc_ast_stmts(nse, ast):
+    if(ast.type == 'asn_list' and ast.str == ';'):
+      for child_ast in ast.arr:
+        nse.proc_ast_stmt(child_ast);
+    else:
+      assert(False);
+
+  def nse_proc_ast_stmt_1(nse, ast):
+    if ast.type == 'asn_list' and ast.str == ' ':
+      head, *tail = ast.arr;
+      ast_tagname(head);
+      nse.setTag(ctx);
+      for clause in ast.arr:
+        # if tag is added, then 
+        nse.addTag
+        ctx.stage+=1;
+    else:
+      ctx.tag.proc_clause(); parse_stmt_1_clause_sp(nse, ast);
+
+    if(stmt.stage == 0):
+      ast_tagname(ast);
+      nse.type.addtag(nse);
+    elif(stmt.stage == 1):
+      nse.type.procstage
+      if(nse.cat == 'action'):
+        assert(False)
+      else:
+        assert(False) # TODO
+    stmt.stage+=1;
+
+
+  def nse_class_addtag(nse, ast):
+    assert(false);
+  def nse_class_procstage(nse, ast):
+  class tag_class:
+    def proc_stage(self, nse, ast):
+      assert(False);
+  class tag_typedef:
+    def proc_stage(self, nse, ast):
+      assert(False);
+  class tag_copath:
+    def proc_stage(self, nse, ast):
+      assert(False);
+  class tag_singleton:
+    def proc_stage(self, nse, ast):
+      assert(False);
+  class tag_extends:
+    def proc_stage(self, nse, ast):
+      assert(False);
+  class tag_events:
+    def proc_stage(self, nse, ast):
+      assert(False);
+  Tags = Obj({
+    "class":tag_class,
+    "typedef":tag_typedef,
+    "copath":tag_copath,
+    "singleton":tag_singleton,
+    "extends":tag_extends,
+    "events":tag_events,
+  })
+  
+  def ast_tagname(ast):
+    if(ast.type == 'asn_word'):
+      ctx.namestr = ""
+      ctx.tagstr = ast.word
+    elif(ast.str == ':' and len(ast.arr) == 2):
+      assert(ast.arr[0].type == 'asn_word');
+      assert(ast.arr[1].type == 'asn_word');
+      ctx.namestr = ast.arr[0].str()
+      ctx.tagstr = ast.arr[1].str()
+    else:
+      assert(False)
+
+  def parse_stmt_1_clause_sp(nse, ast):
+    if(stmt.stage == 0):
+      ast_tagname(ast);
+      nse.type.addtag(nse);
+    elif(stmt.stage == 1):
+      nse.type.procstage
+      if(nse.cat == 'action'):
+        assert(False)
+      else:
+        assert(False) # TODO
+    stmt.stage+=1;
+
+  def parse_stmt_1(nse, ast):
+    st_push(nse, ast);
+    ctx.stage = 0;
+    ctx.tagstr = ctx.namestr = "";
+    ctx.tag = None;
+    if ast.type == 'asn_list' and ast.str == ' ':
+      head, *tail = ast.arr;
+      ast_tagname(head);
+      nse.setTag(ctx);
+      for clause in ast.arr:
+        nse.addTag
+        ctx.stage+=1;
+    else:
+      ctx.tag.proc_clause(); parse_stmt_1_clause_sp(nse, ast);
+    st_pop()
+    
+  def trav(nse, ast):
+    st_push(nse, ast);
+    if(ast.type == 'asn_list' and ast.str == ';'):
+      for child_ast in ast.arr:
+        child_nse = Nse(nse)
+        parse_stmt_1(child_nse, child_ast)
+        nse.nses[child_nse.name] = child_nse;
+    else:
+      assert(False);
+    st_pop(nse, ast);
+  
+  trav(nseroot, astroot);
+  return nseroot;

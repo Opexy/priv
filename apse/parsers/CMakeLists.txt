@@ -1,0 +1,7 @@
+find_package(pybind11)
+add_executable(apse_ast1 apse_ast1.cc)
+target_link_libraries(apse_ast1 PUBLIC -lfmt)
+target_compile_options(apse_ast1 PRIVATE -O0)
+set(PYBIND11_CPP_STANDARD -std=c++2a)
+pybind11_add_module(apse_py apsemodule.python.cpp)
+#target_link_libraries(apse_py PUBLIC -lpthread -ldl -lfmt -flto)
