@@ -1,0 +1,11 @@
+if [ ! -d /tmp/sage_build ]; then
+  mkdir /tmp/sage_build
+  sudo mount -o bind /tmp/sage_build build
+fi
+cd parsers
+java -Xmx4096M org.antlr.v4.Tool -Dlanguage=JavaScript Gena.g4 -o ../websage/src/gena
+cd ../
+antlr4ts websage/src/gena/Gena.g4
+cd websage
+tsc
+cd ..

@@ -1,0 +1,5 @@
+AstNumber[x,y,z,...rest,COUNT=1];
+AstNumber[COUNT=2];
+AstNumber[2];
+AstNumber[N];
+AstNumber[...A, ...B];

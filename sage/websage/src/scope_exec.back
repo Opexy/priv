@@ -1,0 +1,158 @@
+const { isString, transform, isArray, isElement } = require('lodash');
+var _ = require('lodash');
+var {isMatch, isEmpty, includes, merge, groupBy, findLast} = _;
+Object.prototype._merge = (...args)=>merge(this, ...args);
+Object.prototype._entries = ()=>Object.entries(this);
+Object.prototype._values = ()=>Object.values(this);
+Object.prototype._includes = (...args)=>includes(this, ...args);
+const assert = console.assert;
+function ProxyGet(onProp){
+  return new Proxy({},{get(target, prop, recv){
+    if(prop in target) return target[prop]
+    else return onProp(prop, target, recv);
+  }})
+}
+function procScope(){
+  scopeRoot = {};
+  const Classes = ProxyGet(clsName=>Class(clsName));
+  const SysTypes = ProxySet(stName=>SysType(stName));
+
+  KeyIdDef = ClassKey('Id');
+  function normalSpec(scope){
+    var ret;
+    if(isString(scope)){
+      ret = {scopeName:scope};
+    }
+    else if(scope.scopeName){
+      ret = scope;
+    } else {
+      assert(isObject(scope));
+      let [[scopeName, spec], ...rest] = scope._entries();
+      if(!isObject(spec))
+        ret = merge({scopeName, scopeSpec:spec}, Object.fromEntries(rest));
+      else {
+        assert(!isArray(spec));
+        function scopeSpecName(key, entry){
+          if(key.startsWith('self__'))
+            return key[]. key. !== 'scopeSpec';
+        }
+        var elemSpec = {};
+        var scopeSpec = {};
+        for([key, entry] of spec._entries()){
+          if(isElemSpec(key, entry)){
+            elemSpec[key] = normalSpec({[key]:entry});
+          } else {
+            scopeSpec = entry;
+          }
+        }
+      }
+      ret = merge({scopeName, scopeSpec, elemSpec}, spec, Object.fromEntries(rest));
+    }
+    return ret;
+  }
+
+  
+  // {keyName:{keyComponentName:{}}}
+  // keyName
+  // {keyName:keyType}
+  // just do a elems declare
+  function ClassKey(key){
+    if(key.KEYNAME) {
+      keyName = key.KEYNAME;
+      delete key.KEYNAME;
+      key = {[keyName]:key};
+    } else {
+      
+    }
+    let keySpec = normalSpec(key);
+    keySpec.scopeType = 'ClassKey';
+    return keySpec;
+  }
+
+  function Field(fieldSpec){
+    if(!fieldSpec.scopeName){
+
+    }
+  }
+
+  function scopeAddElem(scope, elem){
+    elem = normalSpec(elem);
+    var elemName = elem.scopeName;//, elemSpec;
+    if(!elem.anchor)
+      elem.anchor = scope;
+    if(["Class","ClassKey","ScopeField"]._includes(scope.scopeType) && ["ClassKey","ScopeField"].includes(elem.ScopeType)){
+      if(scope.scopeType === 'Class' && elem.scopeType === 'ClassKey'){
+        scope.keys = scope.keys ?? {};
+        assert(!scope.keys._includes(elemName));
+        scope.keys[elemName] = elem;
+      } else {
+        scope.fields = scope.fields ?? {};
+        assert(!scope.fields._includes(elemName));
+        scope.fields[elemName] = elem;
+      }
+      for(let elemChild of elem.elemSpec._values()){
+        if(!elemChild.scopeType)
+          elemChild.scopeType = "ScopeField";
+        elem.fields[elemChild.scopeName] = scopeAddElem(elem, elemChild);
+        if("Class" === scope && elem.scopeType === 'ClassKey'){
+          scope.fields[elemChild.scopeName] = elem.fields[elemChild.scopeName];
+        }
+      }
+    } else{
+      assert(false);
+    }
+    return elem;
+  }
+  // prototypes
+  function Class(name, ...elems){
+    let scope = scopeRoot[name];
+    if(!scope){
+      scope = scopes[name] = {scopeType:'Class', scopeName:name};
+    } else {
+      assert(scope.scopeType === 'Class');
+    }
+    for(elem of elems)scopeAddElem(scope, elem);
+    return scope;
+  }
+  function SysType(name, spec){
+    let scope = scopeRoot[name];
+    if(!scope){
+      scope = scopes[name] = {scopeType:'SysType', scopeName:name};
+    } else {
+      assert(scope.scopeType === 'SysType');
+    }
+    scope._merge(spec);
+    return scope;
+  }
+
+  function testGen(){
+    SysTypes.UiDeviceRef = {CSIZE:8};
+    spec = `
+    RegisteredUser:Class {
+      Id;
+      RegisteredUserName:ClassKey type:String;
+      Abcd:ClassKey {
+        ab:String;
+        cd:Field type:String;
+      };
+      UiDevice:Class {
+        Id;
+        UiDeviceRef;
+      };
+    };
+    `
+    
+    Class('RegisteredUser', 
+      ClassKey({Id:'Id'}),
+      ClassKey({RegisteredUserName:'String'}),
+      ClassKey({Abcd:{ab:{spec:{ElemType:""}}'String',cd:'String'}}),
+      Field({RegisteredUserPhone:'String'}));
+    Class('UiDevice', [{Id:'Id'}, {UiDeviceRef}])
+    Class('UiUser', [{Id:'Id'}, {RegisteredUser:NaryOne}], )
+  }
+
+  return {testGen}
+}
+if(require.main === module){
+  procScope().testGen();
+}

@@ -1,0 +1,339 @@
+'use strict';
+import _ from 'lodash';
+var {isArray, isString, isNumber, isObject, isMatch, isEmpty, includes, merge, groupBy, findLast} = _;
+Object.prototype._merge = (...args)=>merge(this, ...args);
+Object.prototype._entries = ()=>Object.entries(this);
+Object.prototype._values = ()=>Object.values(this);
+Object.prototype._includes = (...args)=>includes(this, ...args);
+
+import SymbolTree from '/usr/local/lib/node_modules/symbol-tree/lib/SymbolTree.js';
+import antlr4 from 'antlr4';
+var { CharStreams, CommonTokenStream, ParserRuleContext, tree:{ParseTreeWalker} } = antlr4;
+//var { ParseTreeWalker } = require('antlr4/tree/ParseTreeWalker');
+
+import GenaLexer from './gena/GenaLexer.js';
+import GenaParser  from './gena/GenaParser.js';
+import GenaListener from './gena/GenaListener.js';
+Rmap.idgroups = {};
+Rmap.idobjs = {};
+Rmap.mkId = function mkId(e, group){
+  let {idgroups, idobjs} = Rmap;
+  if(isString(e) || isNumber(e))
+    return JSON.stringify([e]); // TODO: if string is too long.
+  else if(isObject(e)){
+    if(!e._rmapid){
+      group = group ?? e._rmapGroup ?? '';
+      let num = idgroups[group] ?? 1;
+      idgroups[group] = num + 1;
+      e._rmapid = group + '_' + num
+      idobjs[e._rmapid] = e;
+    }
+    return e._rmapid;
+  }
+  else assert(false);
+}
+function Rmap(){
+  // array is not allowed.
+  let paths = {}
+  let mkId = Rmap.mkId;
+  const KeyArray = path=>path.map(e=>[mkId(e), e]);
+  const KeyStr = keyArray=>keyArray.map(e=>e[0]).join('#')
+  const setKeyArray = (arr)=>{
+    let keyStr = KeyStr(arr);
+    let ret = paths[kstr];
+    if(!ret) {
+      let [keyId, keyObj] = arr.slice(-1)[0];
+      ret = {
+        parent:undefined, keyStr, keyId, keyObj, subKeys:{}, 
+        get hierArr(){
+          let iter = this, ret = [this]; 
+          while(iter.parent){
+            iter=iter.parent;
+            ret.push(iter);}
+          return ret.reverse();
+        }};
+      if(arr.length > 1){
+        ret.parent = setKeyArray(arr.slice(0,-1));
+        ret.parent.subKeys[keyId] = keyObj;
+      }
+      paths[kstr] = ret;
+    }
+  }
+  function set(path){
+    let keyArray = KeyArray(path);
+    return setKeyArray(keyArray);
+  }
+  function get(path){
+    let keyStr = KeyStr(KeyArray(path));
+    return paths[keyStr];
+  }
+  return {set,get};
+}
+var rmap = Rmap();
+
+function NseSpace(){
+  function NseNode(parent, edges, kstr = edges.join('.'), exts={}){
+    return {parent, edges, exts, kstr,
+      concat(...edges){return Nse([...this.edges, ...edges])},
+    }
+  }
+  let nses = Nse.nses = {};
+  Nse.root = NseNode(undefined, [])
+  Nse.NseNode = NseNode;
+  function Nse(...edges){
+    if(edges.length == 0) return Nse.root; 
+    let kstr = edges.join(".");
+    let ret = nses[kstr];
+    if(!ret){
+      let parent = Nse(...edges.slice(0, -1));
+      ret = NseNode(parent, edges, kstr);
+      parent.exts[_.last(edges)] = ret;
+    }
+    return ret;
+  }
+  return Nse;
+}
+
+function ObjectCreate({base=Object.prototype, protos=[], excludes=[]}){
+  let protoDescriptors = Object.assign({}, 
+    ...protos.map(x=>Object.getOwnPropertyDescriptors(x)));
+  for(excl of excludes) delete protoDescriptors[excl];
+  return Object.create(base, protoDescriptors);
+}
+
+function FlowBase({base=Object.prototype, protos=[]} = {}){
+  const proto = {
+    _freeze(){return Object.freeze(this)},
+    _getOwnProp(propName){return Object.getOwnPropertyDescriptor(this, propName)},
+    _getOwnProps(props){
+      if(!props) return Object.getOwnPropertyDescriptors(this);
+      else return Object.fromEntries(props.map(prop=>[prop, Object.getOwnPropertyDescriptor(this, prop)]));
+    },
+    _save(){
+      this._isSaved=true; 
+      this._freeze(); 
+      return this;
+    },
+    _update(...changes){
+      for(var change of changes){
+        if(typeof change === 'function')
+          change(this);
+        else
+          Object.assign(this, change);
+      }
+      this._rawChanges.push(...changes);
+      return this;
+    },
+    transact(...changes){
+      return this._create()._update(...changes)._save();
+    },
+    _create(){
+      let ret = Object.create(this);
+      if(Object.getPrototypeOf(this) !== base){
+        let props = this._getOwnProps();
+        Object.values(props).forEach(prop=>prop.writable=true);
+        Object.defineProperties(ret, props)
+      }
+        
+      Object.defineProperties(ret, {
+        _isSaved:{value:false, writable:true},
+        _rawChanges:{value:[], enumerable:false, writable:false}
+      });
+      return ret;
+    },
+  }
+  let ret = ObjectCreate({base:Object.prototype, protos:[proto, ...protos]});
+  return ret;
+}
+
+const assert = console.assert;
+function ProxyGet(onProp){
+  return new Proxy({},{get(target, prop, recv){
+    if(prop in target) return target[prop]
+    else return onProp(prop, target, recv);
+  }})
+}
+
+function procScope(){
+
+  let Nse = NseSpace();
+  let fb = FlowBase({protos:[{
+    pushNse(nse){
+      fb = this.transact({nse}); return fb;
+    },
+    pushLets(lets){
+      fb = this.transact({lets:[...fb.let, ...lets]});
+    },
+  }]}).transact({nse:Nse.root});
+  let defRoots = flow.defTree.childrenToArray(flow.defTree);
+
+  
+  //DefNode.prototype
+  // or should we use html node instead...?
+  function AstFlow(){
+    const defTree = new SymbolTree();
+    var defCur = defTree;
+    class DefNode{
+      constructor(defParent = defCur){
+        defTree.appendChild(defParent, this);
+      }
+      get defParent(){return defTree.parent(this)}
+      get defChildren(){return defTree.childrenToArray()}
+    }
+    // scope vector
+    const Def = (spec)=>merge(new DefNode(), spec);
+    const DefIn = (spec)=>(defCur = Def(spec));
+    const DefOut = ()=>(defCur = defCur.defParent);
+    class AstListener extends GenaListener{
+      enterEveryRule(ctx){
+        this.ctx = ctx;
+      }
+      enterStmtNse(ctx){
+        let iden = ctx.nseIden().getText();
+        DefIn({scope:iden});
+        let models = ctx.nseModel().map(model=>(Def({
+          model:model.nseModelName().getText(),
+          modelProps:Object.fromEntries(model.nseModelProp().map(p=>
+            [p.nseModelPropKey().getText(), p.nseModelPropVal()?.getText()]))
+          })));
+        if(iden === 'let') {
+          assert(models.length);
+        } else if(iden === 'frag'){
+          assert(!models.length);
+          return;
+        }
+        assert(models.length === 1);
+        defCur.models = models;
+      }
+      exitStmtNse(ctx){
+        DefOut();
+      }
+    }
+    let genaListener = new AstListener();
+
+    return {defTree, genaListener}
+  }
+  var flow = AstFlow();
+  
+  const SysTypes = ProxyGet(prop=>{
+    //sysTypes[prop] = new DefNode({cmd:'SysType', name:prop});
+  })
+  // Elements has to be command.
+  // Command can be scoping. It may not have an nse, but a predecessor and eventually see an nse.
+  // Commands are associated with a namespace -- and each namespace extension has its own modifer.
+  // and that needs to be added to the commands.
+  // the commands should/may have an ID...
+  
+  function parseSource(input){
+    const chars = CharStreams.fromString(input);
+    const lexer = new GenaLexer(chars);
+    const tokens  = new CommonTokenStream(lexer);
+    const parser = new GenaParser(tokens);
+    parser.buildParseTree = true;
+    const tree = parser.doc();
+    ParseTreeWalker.DEFAULT.walk(flow.genaListener, tree)
+    return gf;
+  }
+
+  // Name Resolution Node
+  class NseVisitNode{
+    // Resolving strategy: resolve all class/statically scope first.
+    // then solve anything that doesn't have a parameters.
+    // then resolve function calls based on the flows.
+  }
+  // Model: We need Elem as parameter.
+  // Model: will expose aggregates as subspace
+  // Pointer: Pointer:..., chain( as recursive)
+  // Model Stack.
+  // Instance: 
+
+  function evalAll(){
+
+    pendingVisits = [];
+
+    // App.Users,       List,           /,       List<User>, 'self'
+    // App.Users,       User,           /,       List<User>, 'elem'
+    // App.Users,       User, 'UserName'/,       List<User>, 'elem'
+    // App.Users.Email, User, 'UserName'/,       List<User>, 'elem'
+    // App, User, Query, ...
+    // If it is "Include model", or template model...
+    // Then when resolving the model, will look at HyperRoot for details.
+    // HyperAlias: specify "x,y" to be the same namespace.
+
+    // SrcRoot, TargetRoot, RelPath, Model, ModelParam
+    function visitDef(def){
+      let fbp = fb;
+
+      if(def.scope === 'let') {
+        fb.pushLets(lets);
+        return;
+      }
+      else if(def.scope === 'frag'){
+        assert(def.models.length === 0)
+        visitDefChildren();
+      }
+      else if(def.scope === 'name' && fb.nse === Nse.root){
+        let nse = fb.nse.concat(def.scope);
+        nse.models = def.models;
+        visitDefChildren();
+      }
+
+      if(fbp)
+      if(def.scope){
+        if(def.scope === 'frag'){
+          // no push for nse.
+        } else if(def.scope === 'let'){
+
+        } else {
+          let nse = fb.pushNse(fb.nse.concat(def.scope)).nse;
+          if(!nse.models){
+            nse.models = [{nse, model:}]
+          }
+        }
+        
+      }
+      fb = fbPrev;
+      return;
+      function procModel(){
+
+      }
+    }
+    defRoots.forEach(def=>visitDef(def));
+
+    return gf;
+  }
+  function genaCpp(){
+  }
+  function testGen(){
+    var specSys = `
+      UiDeviceRef:systype(CSIZE:8);
+    `;
+    parseSource(specSys);
+    let spec = `
+    frag {
+      let:String;
+      Name;
+    };
+    RegisteredUser:Class {
+      Id;
+      RegisteredUserName:ClassKey(type:String);
+      Abcd:ClassKey {
+        ab:String;
+        cd:Field(type:String);
+      };
+      UiDevice:Class {
+        Id;
+        UiDeviceRef;
+      };
+    };
+    Id:ClassKey;
+    `
+    parseSource(spec).evalAll().genaCpp();
+    return gf;
+  }
+  var gf = {parseSource, evalAll, genaCpp, testGen};
+  return gf
+}
+if(import.meta.url.indexOf(process.argv[1])){
+  procScope().testGen();
+}

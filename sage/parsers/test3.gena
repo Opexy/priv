@@ -1,0 +1,187 @@
+### :concept --> is a type
+### :anything else --> a field that merges in / initializes the concept
+### all concepts are merged into the user.
+### NseLabel:NseModel(NseModelParams) | NseModelCurly ,
+### exeActor exeVerb<exeTarget> targetlist (args)
+### Each System: each Object: System Unique Identifier; System Object Mgr -> localId (of each object); Local Idx Mgr; 
+
+system AppBackEnd cpp; ### sql
+system AppServer cpp;
+system AppClient browserjs;
+
+class TreeNode{
+  field Parent:TreeNode | Undefined;
+  field Children:List<TreeNode> | Undefined;
+};
+
+class DocElem:TreeNode {
+  type OwnerType:renames(TreeNode.ParentType);
+  type ElemType:renames(TreeNode.ParentType);
+  field Owner:renames(TreeNode.Parent);
+  field Fragments:renames(TreeNode.Children);
+};
+
+class DocRoot:TreeNode{
+  type OwnerType
+}
+
+
+flowmgr FlowStorage {
+  AppBackEnd{
+
+  };
+  AppServer{
+    ### Assigns new ID 
+  };
+  AppClient{
+    
+  } 
+};
+
+flowmgr DbFlow{
+  
+  Id:AutoId;
+  UniqName:StringKey index(lookup_precise, prefix_sorted, positional); ### lookup: hash, lookp+sorted:..., position: 
+};
+concept User source(DbFlow){
+  Id;Name;
+  AppClient.RefId; ### we have multiple client that has this reference Id
+  AppServer.RefId; ### we have multiple server that has this reference Id
+  BackendServer.RefId; ### backend server refers to this Id
+  UserName:string; ### Emplacement key (in backend server) Username -> User Id
+
+
+  string Name;
+};
+
+
+
+concept.singleton Registration; ## cannot have instances.
+Person(P) Registration {
+  Name;
+
+};
+concept 
+concept Company extends LegalPerson {
+  Company 
+};
+concept Actor extends Person{
+
+};
+
+concept Array<Elem:concept, Length:Integer> {
+  elem {
+    
+  }
+  elems:
+}
+Collection<ElemType: ServerSession by Query(idx), 
+concept.get Array.Magnitude 
+package Astronomy {
+  concept AstNumber as double;
+  concept Vec N(Integer) as AstNumber[x,y,z,w,a,b,c,count=N] {
+    get Magnitude {
+      return as AstNumber;
+    }
+    verb Length{
+      return sqrt(sum(...elems));
+    };
+    Normal:get function(){
+      return Normal
+    }
+  }
+  concept Vec3 as Vec N(3) {
+    Length:get function(x,y,z)
+  }
+  Vec3:concept AstNumber[x,y,z] {
+   Length:get function(x,y,z){ 
+      return Length = x*3 + y*3 + z*3; ### no need to re-eval. return: terminates the function.
+      
+    }
+    Normal3:get function(x,y,z) {
+      Normal3 = [x/Length, y/Length, z/Length];
+    }
+  };
+  Pos3:concept AstVec3;
+  Velocity3:concept AstVec3;
+  AngularNormal:concept AstVec3;
+  AngularVelocity3:concept AstVec3 {
+    AngularNormal:alias Normal3;
+  };
+  Acceleration3:concept AstVec3;
+
+  MassiveSystem:concept{
+    MassiveBodies:Mgr<MassiveBody> nsmerge;
+  };
+  MassiveBody:concept {
+    Type:specializer{
+      Star{StatusSnap.EmmisiveLumin:AstNumber}, Planet, Moon}; ### Star is a MassiveBody
+    StatusSnap:concept {
+      Mass:AstNumber nssolid; ### nssolid stops merge unless otherwise specified.
+      Position:AstPos3 nssolid;
+      Velocity:vec3 nssolid;
+      time:AstNumber nssolid;
+    };
+    InitStatus:StatusSnap;
+
+  }
+}
+
+### creation chain: create A because part of the field has to be created
+exer ...
+create.part Application(args) Vspec() args() (args){ivCurly}
+server create.part 
+
+
+
+
+
+Emplace:Verb(this)
+AppServer:system(cpp){
+  AppSessions:mgr<AppSession>{
+    handles Emplace(AppSession){
+    }
+  };
+};
+
+AppClient:system(javascript){
+  ClientInfo:nsmerge initWith(InitClientInfo);
+  originates [singleton|list] AppSession [merge|nomerge]{
+
+  }
+  event init(AppClient){
+    init ClientInfo with InitClientInfo:extfun;
+
+  }
+};
+
+### A class that handles something else means the scope of that function will be actor(s), eventname, eventTargets, 
+### So we have Event and EventTargets, and will look for suitable actors on suitable system to handle such event.
+### means AppServer.AppSessions is the primary namescope that handles AppSession.Emplace
+
+
+### we have: manager of resource(class), snapshot of an element, a synclist.
+AppServer.AppSessions handles AppSession.Emplace; 
+
+
+ClientCommunicationContext {
+};
+
+AppSession:nsmerge {
+  UrlId:String;
+  ServerInfo.ServerUrl:String;
+  Token:String;
+};
+
+
+
+AppClient handles AppSession.Emplace {
+  start AppSession.Emplace on AppServer.AppSessions {
+    timeout:300ms => Popup("Connection Failed");
+    Connection.Failed then {
+      Popup("Connection Failed");
+    };
+  }
+
+}
+AppSession:()

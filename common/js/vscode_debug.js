@@ -82,12 +82,12 @@ const spec_lines = (txt,re) => {
   return result.map(x=>(x[2]??x[4]).trim()).join('\n')}
 //const build = require('./cfgspec');
 
-
-/*
+/* GEN++ */
+// GEN--
 const rex_debug_target = /^debug\s+(\w+)\s+(.*)$/
 const rex_build_target = /^build\s+(.*)$/
 const rex_jspec_target = /^jspec\s+(.*)$/
-*/
+
 function srcspec(file){
   const filetxt = fread(file);
   const file_regexs = {

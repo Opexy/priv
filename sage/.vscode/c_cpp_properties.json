@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/local/bin/clang",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "cppStandard": "c++20"
+        }
+    ],
+    "version": 4
+}

@@ -1,0 +1,329 @@
+import { CharStreams, CommonTokenStream, ParserRuleContext } from 'antlr4ts';
+import {GenaLexer} from './gena/GenaLexer';
+import {GenaParser, NseParamContext, StmtNseContext} from './gena/GenaParser';
+import {GenaListener} from './gena/GenaListener';
+import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker'
+import {isMatch, isEmpty, includes, merge} from 'lodash'
+import { assert } from "console";
+import { stringify } from 'querystring';
+
+function GenaFramework(){
+  type NseNameString = string;
+  //type NseNameStringElem = string;
+
+  //class NseName{
+  //  constructor(public name:Array<NseNameStringElem>){};
+  //  toString():NseNameString{return this.name.join('.')}
+  //  get tail(){return this.name[this.name.length - 1]}
+  //  get isValid():boolean{return this.name.length && this.name[0] != 'let'}
+  //};
+  type NseName = string;
+
+  type SpecType = 'Root' | 'Unknown' | 'Type' | 'Data' | 'NameFrag' | 'Event'| 'Param';
+  type SpecSubType = 'Default' | 
+                     'Class' | 'Frag' | 'Enum' | 'StdType' |
+                     'Alias';
+  type SpecModel = {model:string, [key:string]:string}
+  type SpecModelElemType = string;
+  type SpecObj = {
+    specType?:SpecType,
+    specSubType?:SpecSubType,
+    specModel?:SpecModel,
+  };
+
+  type DefCmd ={[key:string]:string};
+  class DefNode{
+    public defs:Array<DefNode>;
+    constructor(
+      public parent:DefNode,
+      public aspect:string,
+      public name:string,
+      public cmds:Array<DefCmd> = []){
+    }
+    pushCmd(...cmds:DefCmd[]){cmds.push(...cmds)}
+  }
+
+  function Def(parent:DefNode, name:string, ...cmds:DefCmd[]):DefNode{
+    return new DefNode(parent, '', name, cmds);
+  }
+
+  // "Name:ModelName"
+  // "parent", "vroot", "name" "target"
+  // in case it is coherenced, there will be multiple potentials, xxx @ virtualroot
+  // Class:;
+  // Model: When resolving Child, treat a few children as Type Params (Automatic Name Coherence)
+  // 
+
+
+  interface NseNode {
+    nses:{[key:string]:NseNode};
+    parent:NseNode;
+    target: ;
+    name; 
+    cat: 'NamedType' | 'NamedField' | 'NamedEnum' | 'Data' | 'Event';
+    target:string;
+    cat: 'Root' | 'Type' | 'Data' | 'NameFrag' | 'Event' | 'Param',
+    model: 'TypeClass' /* inherits, etc */
+          | 'TypeFrag' | 'TypeEnum' | 'TypeStd' | 'TypeAlias'
+
+  };
+
+  
+
+  class NseObj implements SpecObj{
+    public nses:{[key:string]:NseObj} = {};
+    public nseEval:NseEval = undefined;
+    public _srctxt:string = undefined;
+    public specType:SpecType = 'Unknown'
+    public specSubType:SpecSubType = 'Default'
+    public specModel:SpecModel = specModelDefault;
+
+    constructor(
+      public nseParent:NseObj, 
+      public nseName:NseName,
+      nseSpec:{[key:string]:any} = {},
+      public nseLets:Array<NseObj>=[])
+    {
+      if(this.isNameValid)
+        this.rParent.nses[nseName] = this;
+      merge(this, nseSpec);
+    }
+    get isRoot(){return this.nseParent === undefined}
+    get isNameValid():boolean {return this.nseName && !includes(['let', 'frag'], this.nseName)}
+    get isNameless():boolean {return !this.isNameValid;}
+    get isLet():boolean {return this.nseName === 'let';}
+    get specObj():SpecObj{
+      return {specType:this.specType,
+              specSubType:this.specSubType, 
+              specModel:this.specModel}
+    }
+    get rParent():NseObj{
+      if(!this.nseParent)
+        return undefined;
+      else if(this.nseParent.isRoot)
+        return this.nseParent;
+      else if(this.nseParent.isNameValid)
+        return this.nseParent;
+      else return this.nseParent.rParent;
+    }
+    createNse(nseName:NseName, spec:{[key:string]:any}, nseLets:Array<NseObj>):NseObj
+    {
+      return new NseObj(this, nseName, spec, nseLets);
+    }
+  }
+  // Nse Type Spec
+  /*
+  type NseSpec = NseRootSpec | NseUnknownSpec | NseDataSpec | NseTypeSpec | NseEventSpec | NseParamSpec;
+  type NseUnknownSpec = {type: 'Unknown'} & NseSpecResolvable
+  type NseRootSpec = {type: 'Root'}
+  type NseSpecResolvable = {type: 'Data' | 'Unknown', resolveModel:string, resolveElem:string}
+  type NseDataSpec = {type: 'Data'} & NseSpecResolvable
+  type NseEventSpec = {type:'Event'}
+  type NseParamSpec = {type:'Param'}
+  type NseTypeSpec = {type: 'Type'} & (NseClassSpec | NseFragSpec | NseEnumSpec | NseStdTypeSpec)
+  type NseClassSpec = {subType:'Class'}
+  type NseFragSpec = {subType:'Frag'}
+  type NseEnumSpec = {subType:'Enum'}
+  */
+  
+  function specUnknown(specModel = specModelDefault):SpecObj{
+    return {specType:'Unknown', specModel};
+  }
+  function specData(specModel = specModelDefault):SpecObj{
+    return {specType:'Data', specModel};
+  }
+  const specFrag:SpecObj = {specType:'Type', specSubType:'Frag'}
+  function specTypeAlias(aliasTarget:SpecModelElemType):SpecObj{
+    return {specType:'Type', specSubType:'Alias', specModel:{model:'default', elemName:aliasTarget}, specModelElemType:aliasTarget};
+  }
+  const specModelDefault:SpecModel = {model:'default', elemName:''}
+  
+
+  type NseStdTypeSpec = {
+    subType:'StdType', traits:NseStdTypeTraits, 
+    lngNames:{[key in 'cxx'|'js']?:string}, nbits:number
+  }
+  type NseStdTypeTraits = {[key in 'number'|'ptr'|'custom']?:any};
+
+  var nseRoot:NseObj = new NseObj(undefined, '', {specType:'Root'}, []);
+  function Nse(
+    parent:NseObj,
+    nameStr:string, 
+    spec:SpecObj = specUnknown(),
+    nseLets:Array<NseObj> = []):NseObj
+  {
+    if(!nameStr) nameStr = '';
+    let names = nameStr.split('.');
+    let ret:NseObj;
+    while(names.length > 1){
+      parent = parent.createNse(names.shift(), specUnknown(), parent.nseLets);
+    }
+    return parent.createNse(names.shift(), spec, nseLets);
+  }
+
+  type NseEvalInterface = {[key:string]:any};
+  type NseEvalType = 'root' | 'alias' | 'include' | 'default';
+    
+  interface NseEval{}
+  function evalAll() {
+    let resolved:Array<NseObj>=[];
+    let unresolved:Array<NseObj>=[];
+    // first stage.
+    function eval_1(self:NseObj){
+      for(var def of self.nseLets){
+        if(def.specType === 'Unknown') {
+          assert(false);
+        }
+      }
+      let targetSpec = 'Unknown';
+      if(self.specType === 'Root'){}
+      else if(self.specType === 'Unknown'){
+        if(includes(['Root', 'NameFrag'], self.rParent.specType)){
+          self.specType = 'NameFrag';
+        } else if(includes(['Class', 'Data'], self.rParent.specType)){
+          targetSpec = 'Data';
+          if(!self.rParent.specModelElemType) {
+            assert(false);
+          }
+        }
+      }
+      if(targetSpec === 'Data'){
+        self.specType = 'Data';
+        let {specModel, specModelElemType} = self;
+        if(!self.specModel) self.specModel = 'One';
+        //assert(isEmpty(rest));
+      }
+
+      assert(self.specType !== 'Unknown');
+      for(var child of Object.values(self.nses)){
+        eval_1(child);
+      }
+    }
+    eval_1(nseRoot);
+    
+
+    function nseEval(nse:NseObj){
+
+    }
+    // Access Tree?
+    for(var nsestr in nseRoot.nses){
+      assert(false);
+      nseEval(nseRoot.nses[nsestr]);
+    }
+    return gf;
+  }
+
+  function genaCpp():string{
+    let ret = 'Hello';
+    return ret;
+  };
+
+  function NseSystemType(typeName:NseNameString, specInfo:any){
+    return Nse(nseRoot, typeName, {specType:'Type', specSubType:'StdType', specInfo});
+  }
+  function createSystemTypes(){
+    const systemTypes:{[key:string]:NseStdTypeSpec} = {
+      Int32  :{lngNames:{cxx:'int32_t'}, nbits:32, traits:{number:1}, subType:'StdType'},
+      Int64  :{lngNames:{cxx:'int64_t'}, nbits:64, traits:{number:1}, subType:'StdType'},
+      Double :{lngNames:{cxx:'double'},  nbits:64, traits:{number:1}, subType:'StdType'},
+      Float  :{lngNames:{cxx:'float'},   nbits:32, traits:{number:1}, subType:'StdType'},
+      Bool   :{lngNames:{cxx:'bool'},    nbits:32, traits:{number:1}, subType:'StdType'},
+      Utf8   :{lngNames:{cxx:'string'},  nbits:128,traits:{number:1}, subType:'StdType'},
+    }
+    for(var typeName in systemTypes){
+      NseSystemType(typeName, systemTypes[typeName]);
+    }
+  };
+  createSystemTypes();
+  
+  function parseSource(input:string){
+    const chars = CharStreams.fromString(input);
+    const lexer = new GenaLexer(chars);
+    const tokens  = new CommonTokenStream(lexer);
+    const parser = new GenaParser(tokens);
+    parser.buildParseTree = true;
+    const tree = parser.doc();
+
+    class GenaListener1 implements GenaListener{
+      ctx:ParserRuleContext;
+      enterEveryRule(ctx:ParserRuleContext){
+        this.ctx = ctx;
+      } 
+      curr:NseObj = nseRoot;
+      lets:Array<NseObj> = [];
+     
+      pushNse(name:NseName, spec:SpecObj){
+        this.curr = Nse(this.curr, name, spec, this.lets.slice());
+        if(this.curr.isLet){
+          this.lets = this.curr.nseLets;
+          this.lets.push(this.curr);
+        }
+        this.curr._srctxt = this.ctx.text;
+        return this.curr;
+      }
+      popNse(){
+        let pop = this.curr;
+        this.curr = this.curr.nseParent;
+        this.lets = pop.nseLets.slice();        
+      }
+      enterStmtNse(ctx:StmtNseContext){
+        if(ctx.nseMain()){
+          ctx.nseMain().Frag
+          let iden = ctx.nseMain().nseIden()?.text;
+          let type = ctx.nseMain().nseType();
+          //let spec:NseSpec = undefined;
+          if(!iden){
+            if(ctx.nseMain().Let()){
+              assert(type);
+              iden = 'let';
+            } else if(ctx.nseMain().Frag()){
+              assert(!type);
+              this.pushNse('',specFrag);
+              return;
+            } else assert(false);
+          }
+          if(ctx.nseParam()[0]){
+            assert(!type);
+            this.pushNse(iden, {specType:'Param'});
+          }
+          else if(type){
+            if(type.text === "class"){
+              this.pushNse(iden, {specType:'Type', specSubType:'Class'})
+              assert(!ctx.nseNary()[0]);
+              //todo: class nary
+            } else if(type.text === "frag"){
+              this.pushNse(iden, specFrag)
+            } else if(type.text === "data"){
+              assert(false);
+              let naryName = ctx.nseNary()[0]?.nseNaryTarget?.()?.text
+              this.pushNse(iden, specData(naryName, ''));
+              assert(!ctx.nseNary()[0]);
+            } else if(type.text === "event"){
+              this.pushNse(iden, {specType:'Event'})
+            } else if(type.text === "type"){
+              let typeAliasName = ctx.nseAlias()?.[0]?.nseAliasTarget?.().text;
+              // todo: unparse unknown
+              this.pushNse(iden, specTypeAlias(typeAliasName));
+            } else if(type.nseIden){
+              this.pushNse(iden, {specType:'Data', specSubType:"Default", 
+                specModel:"", specModelElemType:type.nseIden().text});
+            } else assert(false);
+          } else {
+            let naryName = ctx.nseNary()[0]?.nseNaryTarget?.()?.text;
+            this.pushNse(iden, specUnknown(naryName))
+          }
+        }
+      }
+      exitStmtNse(ctx:StmtNseContext){
+        this.popNse();
+      }
+    }
+    ParseTreeWalker.DEFAULT.walk(new GenaListener1(), tree)
+
+    return gf;
+  }
+  var gf = {Nse, nseRoot, parseSource, evalAll, genaCpp};
+  return gf;
+}
+
+export{GenaFramework};

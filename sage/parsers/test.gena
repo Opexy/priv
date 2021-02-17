@@ -1,0 +1,43 @@
+PositionType:float32;
+frag {
+  let:PositionType;
+  oX;oY;minX;minY;spanX;spanY;
+};
+MousePos:frag {
+  oX;oY;
+};
+WidAnchor2D:frag {
+  copath Wid.Anchor;
+  Parent:Wid;
+  oX;oY;
+  minX;minY;
+  spanX;spanY;
+};
+
+Wid2D:class{
+  copath Wid;
+  WidAnchor2D;
+};
+
+AppWin:class{
+  extends Wid2D;
+  Init:event {
+    initializes OsHandle;
+  };
+  MouseClick:event { ### use belongsto as another way to add to the event tree.
+    caller EventLoop(App);
+    MousePos param;
+    ### update LastEventMousePos with MousePos; ### will have a parameter into LastEventMousePos
+  };
+  ### LastEventMousePos:MousePos;
+  OsHandle:OsHandleWnd;
+};
+App:singleton{
+  Init:event {
+    initializes AppWins;
+    callinto EventLoop;
+  };
+  EventLoop:event;
+  Mywar:Int32;
+  AppWins:List(AppWin);
+};

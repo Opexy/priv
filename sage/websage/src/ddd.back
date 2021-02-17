@@ -1,0 +1,128 @@
+'using strict';
+/// Data Driven Document
+/// last: -1, first: 1
+/// 0: before first
+/// last: -1
+// Data Node Atom
+const isArray = Array.isArray;
+const getProps = Object.getOwnPropertyDescriptors;
+const setProps = Object.defineProperties;
+const assert = console.assert;
+function mkro(obj) {return Object.freeze(obj)}
+function assign(tgt, ...items){
+  let protoDescs = Object.assign({}, ...[items].flat().map(x=>getProps(x)));
+  setProps(protoDescs);
+}
+function DataFramework(config){
+  // Unviersal Scope specifier extends spec
+  const UssName = (name) => (['name', name]);
+  class Uss{
+    constructor(elems){this.elems = elems;}
+    toString(){
+      return JSON.toString(this.elems);
+    }
+    specName(name){return this.spec(UssName(name))};
+    spec(...specs){return new Uss([...this.elems, ...specs])}
+  }
+  // Local Execution Frame
+  class LeFrame {
+  }
+  // 
+  // Script Object
+  // Status Object : Script Pointer. Thread means actor of this uso.
+  class Uso{
+    constructor(parent, spec){
+      this.lid = df.nextLocalId++;
+      this.parent = parent; this.spec = spec; this.subs = []
+    }
+    // Will need to resolve string
+    createHandler(msgSchema){
+      // universal scoped object: handles schema
+
+    }
+    get fullSpec(){
+      let ret = [];
+      for(let iter = this; iter; iter = iter.parent){
+        ret.push(iter.spec);
+      }
+      return ret;
+    }
+    specEquals(spec){
+      if(this.spec === spec) return true;
+      else if(typeof spec === 'object')
+        assert(false);
+      else
+        return false;
+    }
+    findAll(kv){
+      let ret = [];
+      let ftn = typeof(kv) === 'function' ? 
+        kv : sub=>sub.specEquals(kv);
+      this.subs.forEach(sub=>{
+        if(ftn(sub, ret))
+          ret.push(ftn);
+      });
+      return ret;
+    }
+    findFirst(kv){return this.findAll(kv)[0];}
+    findLast(kv){return this.findAll(kv).reverse()[0];}
+    empl({kv, newo}){
+      let ret;
+      if(kv === undefined){
+        ret = this.subs.push(new Uso(this, `idx_${this.subs.length}`));
+      } else {
+        ret = this.findLast(kv);
+        if(!ret) {
+          ret = new Uso(this, kv);
+          if(typeof newo === 'function'){
+            newo(ret);
+          } else if(typeof newo === 'object'){
+            assign(ret, newo);
+          }
+        }
+      }
+      return ret;
+    }
+  }
+  const root = new Uso();
+  function ProcMsg(msg){
+
+    // CtxtId; 
+    // we have message handling contexts that are defined by scope.
+    
+  }
+  const df = mkro({root, ProcMsg})
+  return df;
+}
+
+// Synchronization: MsgProcId, MsgProcKeys,
+
+let df = DataFramework();
+function Init(){
+  let flow = BeginFlow(caller, whence, verb, args);
+  let client = df.RegisterSystem(Client);
+  let server = df.RegisterSystem(Server);
+  let User = df.Datm('User');
+  let User = df.Datf([['FlatAny', 'System', 'Local'],[],[]]);
+  df.compile();
+  server.Add('Users', 'User')
+    .addField(UserName)
+    .addField(Password);
+  df.addCollection('Users');
+
+
+
+  let form = new DataNode();
+  let formFields = new DataNode();
+  for(let i = 0; i < 10; i++){
+    let formField = new DataNode();
+    let formFieldLabel = new DataNode();
+    let formFieldText = new DataNode();
+    formField.push('label', formFieldLabel);
+      ["label", formFieldLabel], 
+      ["text", formFieldText]);
+    formFields.push(formField);
+  }
+
+}
+Init();

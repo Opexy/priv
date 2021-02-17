@@ -1,0 +1,7 @@
+git config --global user.name "MC"
+git config --global user.email "<>"
+cp id* ~/.ssh
+cd ~/
+git clone git@github.com:Opexy/priv.git
+cd priv
+git-crypt unlock /mnt/c/Windows.old/Users/diamond/Documents/priv/privk

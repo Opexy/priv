@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target":"ES2020",
+    "allowJs": true,
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "typeRoots": [
+      "node_modules/@types",
+      "/usr/local/lib/node_modules/@types",
+    ],
+    "outDir": "../build/javascript",
+    "baseUrl":"../",
+    "sourceMap": true
+  },
+  "files": [
+    "src/gena/GenaLexer.ts",
+    "src/gena/GenaParser.ts",
+    "src/gena/GenaListener.ts",
+    "src/sage_gen.ts",
+    "src/engine.ts",
+    "src/genaspec.ts",
+  ]
+}

@@ -1,0 +1,42 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "typescript",
+			"tsconfig": "websage/tsconfig.json",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build",
+			"label": "tsc: build - websage/tsconfig.json"
+		},
+		{
+			"label": "sage_gen",
+			"type": "process",
+			"command": "node",
+			"args": [
+				"--harmony",
+				"--preserve-symlinks-main",
+				"--max-old-space-size=8192",
+				"build/javascript/sage_gen.js",
+				"${file}"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			}
+		},
+		{
+			"label": "websage",
+			"type": "process",
+			"command": "./mk",
+			"options": {
+				"cwd": "${workspaceFolder}/websage"
+			},
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}

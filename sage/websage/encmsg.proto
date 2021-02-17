@@ -1,0 +1,27 @@
+syntax = "proto3";
+message EncMsgPack {
+  message EncVal{
+    int32 vtype=1;
+    int32 vidx=2;
+  }
+  message EncArr {
+    repeated EncVal vals =1;
+  }
+  message EncMsg {
+    int32 lid  = 1;
+    int32 arr  = 2;
+  }
+  int32 start_msgs = 1;
+  int32 start_arrs = 2;
+  int32 start_strs = 3;
+  int32 start_i32s = 4;
+  int32 start_dbls = 5;
+  int32 start_byts = 6;
+  repeated EncMsg msgs = 7;
+  repeated EncArr arrs = 8;
+  repeated string strs = 9;
+  repeated sint64 i32s = 10;
+  repeated double dbls = 11;
+  repeated sint64 byts = 12;
+}
+
