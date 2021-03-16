@@ -1,0 +1,30 @@
+{
+  "name": "src_mod",
+  "version": "1.0.0",
+  "description": "modify source via running comments in js",
+  "type": "module",
+  "main": "src/src_mod.js",
+  "scripts": {
+    "build": "webpack",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "source",
+    "comment",
+    "generator",
+    "runner",
+    "cpp"
+  ],
+  "author": "taugoal",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "antlr4": "*",
+    "base64-js": "*",
+    "js-tokens": "*",
+    "lines-and-columns": "*",
+    "path-browserify": "*",
+    "source-map": "*",
+    "source-map-support": "*"
+  }
+}

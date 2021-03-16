@@ -1,0 +1,4 @@
+if [ ! -d /tmp/mediarec_build ]; then
+  mkdir /tmp/mediarec_build
+  sudo mount -o bind /tmp/mediarec_build build
+fi

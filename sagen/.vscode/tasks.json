@@ -1,0 +1,22 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+		{
+			"label": "websage",
+			"type": "process",
+			"command": "node",
+			"args": [
+				"--harmony",
+				"--preserve-symlinks-main",
+				"--max-old-space-size=8192",
+				"src_mod",
+				"${file}"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			}
+		},
+  ]
+}

@@ -1,0 +1,87 @@
+### nonslot means it is a type only.
+### or otherwise it is a type and a slot when used as a typing word.
+
+dim size integer;
+### dim defines a type.
+dim width, height {type:size};
+dim elem type:slot; ### slot is like a class in css.
+dim row, col, x, y {type:indexer};
+
+dim stride type:fval; ### function that takes in and yields a val.
+dim rowStride type:stride;
+
+### if it doesn't have a name, include all its members... in case
+### it is a basic type, it is an type alias.
+enum PixelFormat {
+  ARGB8 {dim elem is Pixel storage:uint32{uint8 r,g,b,a}}; ### Elem is of type Pixel is of type uint32{...}
+  BGRA8 {dim elem is Pixel storage:uint32{uint8 r,g,b,a}}; ### 
+};
+
+### add function, add arguments, add return
+cmd tcall {
+  ftn typename ftn;
+  parameter timestamp tcall.start = 0;
+  yield.call (call ftn);
+  timestamp tcall.end = 0;
+  when done
+  yield done;
+  return ftn;
+}
+fun main {
+  argument argc:int;
+  argument argv:list(string);
+
+  tcall x 
+
+  yield as value into caller;
+
+
+}
+
+### ndim is a built-in indexer descriptor 
+### concept ndim[dimdesc][...];
+### {
+###   indexer type:integer;
+###   param count:integer;
+###   param type Elem;
+###   param int ElemSize;
+###   get dimname 
+###   slot type:int,width strideSize = ElemSize * Count;
+###   get Size = ELemSize * Count;
+### };
+
+### VideoFrame.row is an indexer to the class
+### VideoFrame.col is an indexer
+### VideoFrame Instance .row is an indexer to the 
+### use x (as x.Type) [in currentscope, subroutines, globally... or whenin ... until... ] means from the scope 
+class VideoFrame {
+  uses ndim
+    [row, x, height, rowStride]
+    [col, y, width, PixelFormat];
+  uses ndim as row;
+  ### basically declares get(row:{},x:{}) etc.
+};
+
+class SurfaceDescriptor {
+
+}
+
+
+function AllocateSurface with SurfaceDescriptor returns {
+  SurfaceDescriptor
+};
+function SendSurface with SurfaceDescriptor;
+allocate -> surface, surface Descriptor
+use surface Descriptor to access void *
+send surface Descriptor
+send -> id
+class MemSurfaceManager{
+  creates ringbuffer MemSurface via SharedMemory;
+}
+class VideoSourceProvider {
+  use VideoSurface;
+};
+
+class StreamProvider serviceprovider {
+  
+};

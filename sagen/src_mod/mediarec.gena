@@ -1,0 +1,122 @@
+### Value
+### ValueSlot
+### TypeSlot
+
+### dim is a class
+### metaclass anything defined by default is dim param
+
+universe MediaRec; ### declares and uses
+sysroot MrServer, MrClient;
+
+storage MediaNodeStore specs storage.default for MediaNode {
+  param StorageUri specs storage.uri initval="local://{nosql}"
+};
+storage ServerStore specs storage.default for MediaNode {
+  param StorageType specs storage.type initval=nosql;
+};
+
+dim PcrStamp:uint64_t {
+  static Frequency:27000000;
+};
+dim PresentationStamp:PcrStamp;
+
+MrServer {
+  var MediaSources specs List<MediaSource>;
+  class MediaSource {
+    var PresentationStamp;
+    subclass VideoMediaSource {
+      subclass ScreenCaptureVideoMediaSource {
+        var uri:string;
+        var sourceRect:ScreenRect;
+        feature.enum Local;
+        var optional destRect {
+          feature destRect;
+        };
+      }
+    };
+    branch AudioSource {
+      channels
+      enum leftChannel audioChannel
+    };
+  }
+};
+
+
+
+ScreenCapturer {
+  key {Name} {
+    provides Frame 
+    datarate.desired:desiredFrameRate
+  }
+
+  
+  
+}
+
+
+
+MediaPipeline {
+  addSource(sourceName, sourceTag, sourceUri) {
+    
+  }
+  beginPresent(){
+
+  }
+  endPresent(){
+    
+  }
+  blockSource(source:MediaSource, atTime=currentPresentationTime) {
+    sendCmd("block", "source");
+  }
+  stopSource() {
+    // Any package that comes from source will be blocked...
+  }
+  startSource() {
+    // Request To Present at timestamp X... Buffering.
+    // And also would yield a delay.
+    // If a filter pipeline enforces 30ms delay, then first stage shall buffer at least 30ms data
+    //
+  }
+
+  MediaPipeProcessor{
+
+  }
+}
+
+metaclass Filter { 
+  FilterSettings;
+};
+
+
+MixAudioChannels{
+  FilterSettings;
+  Run();
+  ConnectTo(Input);
+  ConnectTo(Output);
+  Disconnect();
+}; // Those are source filters
+
+FilterChain {
+  // Channels
+  // Combinators
+  // Add: will not send message to this
+  // Remove: will not send message to this
+  // Filter chain in the sources portion
+  // AddSourceFilter
+  // RemoveSourceFilter: it is like tuning it down softly and then turn it off.
+  // May have multiple threads.
+  InputPackets
+  Configuration
+  Output...
+};
+### Encoder has a fixed output. Input can be configurable.
+X264PassiveEncoder {
+  OutputSettings {
+    AudioChannels,
+    VideoChannels,
+
+  }
+  Run();
+  ConnectTo(Output);
+  ConnectTo(Input);
+}

@@ -1,0 +1,7 @@
+if [ ! -d /tmp/sagen_build ]; then
+  mkdir /tmp/sagen_build
+  sudo mount -o bind /tmp/sagen_build build
+fi
+cd src_mod
+java -Xmx4096M org.antlr.v4.Tool -Dlanguage=JavaScript Gena.g4 -o src/gena
+cd ..

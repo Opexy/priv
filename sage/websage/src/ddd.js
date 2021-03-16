@@ -6,10 +6,11 @@
 // Data Node Atom
 const utils = require('./utils.js');
 var wsmsg = require('./wsmsg.js');
-
-
 function DataFramework(config){
   // Unviersal Scope specifier extends spec
+  class Node {
+  }
+
   const df = {
     Compile, addFunction,
     Entity, Verb,  SysRole,
@@ -19,8 +20,6 @@ function DataFramework(config){
   df.mkEntities = emplr(entities, (obj, name)=>Entity(name));
   df.mkVerbs = emplr(verbs, (obj, name)=>Verb(name));
   df.mkSysRoles = emplr(sysRoles, (obj, name)=>SysRole(name));
-  
-  
   const Defn = Interface({}, [], {
     ctors:[assignThis],
   })

@@ -1,0 +1,2 @@
+./mkbin.sh
+./mkweb.sh

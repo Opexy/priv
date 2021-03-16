@@ -1,0 +1,4 @@
+if [ ! -d /tmp/common_build ]; then
+  mkdir /tmp/common_build
+  sudo mount -o bind /tmp/common_build build
+fi

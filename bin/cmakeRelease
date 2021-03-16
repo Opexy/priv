@@ -1,0 +1,2 @@
+cmake . -DCMAKE_BUILD_TYPE=Release -B./build/release -G Ninja $@
+/usr/bin/cmake --build ./build/release --config Release --target all -- -j 26

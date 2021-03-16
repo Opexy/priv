@@ -1,0 +1,16 @@
+{
+"name": "sagen",
+  "version": "1.0.0",
+  "description": "Structured Automatic Generator",
+  "type":"module",
+  "main": "index.js",
+  "directories": {
+    "js": "js"
+  },
+  "scripts": {
+    "test": "echo hello"
+  },
+  "keywords": [],
+  "author": "Mi Chen",
+  "license": "UNLICENSED"
+}

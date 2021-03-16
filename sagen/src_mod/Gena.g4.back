@@ -1,0 +1,49 @@
+grammar Gena;
+WS: [ \n\t\r]+ -> skip;
+Comment     : '###' ~('\r' | '\n')* -> skip;
+EvtPathConnector: '->';
+// All multichar operators goes before OPCHAR.
+//OPCHAR2  : ('>=' | '<=' | '==' | '&&' | '||' | '^' | '!');
+OPCHAR  : [.,:;{}+\-*/<>[\]()];
+// Reserved Keywords goes anywhere after WS and OPCHAR.
+// you are a parser and parser is stupid. let's keep it that way.
+
+
+STRING
+   : '"' (ESC | SAFECODEPOINT)* '"' ;
+fragment ESC
+   : '\\' (["\\/bfnrt] | UNICODE) ;
+fragment UNICODE
+   : 'u' HEXDIGIT HEXDIGIT HEXDIGIT HEXDIGIT ;
+fragment HEXDIGIT
+   : [0-9a-fA-F] ;
+fragment SAFECODEPOINT
+   : ~ ["\\\u0000-\u001F] ;
+
+fragment IDENFRAG: [a-zA-Z_][a-zA-Z_0-9]*;
+Iden    : IDENFRAG ('.' [a-zA-Z_0-9]+)*;
+
+DECIMAL : '0' | [1-9] [0-9]*;
+HEXADECIMAL : '0'[xX]HEXDIGIT+;
+FLOAT   : DECIMAL '.' [0-9]* EXPONENT? | 
+          [0-9]+EXPONENT;
+fragment
+EXPONENT : [Ee] [+\-]? DECIMAL;
+
+doc         : expr ';'?;
+expr: lhs=expr opr='.' rhs=expr 
+    | lhs=expr opr=('*'|'/') rhs=expr 
+    | lhs=expr opr=('+'|'-') rhs=expr
+    | lhs=expr opr=':'rhs=expr
+    | <assoc=right> lhs=expr opr='=' rhs=expr 
+    | lhs=expr opr=',' rhs=expr
+    | lhs=expr rhs=expr
+    | lhs=expr ';' rhs=expr
+    | opr='(' expr? ')'
+    | opr='[' expr? ']'
+    | opr='{' expr? ';'? '}'
+    | iden=Iden
+    | value;
+value: str= STRING 
+    | numfloat= FLOAT
+    | numdec= (DECIMAL | HEXADECIMAL);

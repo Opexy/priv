@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "/lib/modules/5.10.4-051004-generic/build/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/local/bin/clang",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "cppStandard": "c++20",
+            "cStandard": "c18"
+        }
+    ],
+    "version": 4
+}
