@@ -1,2 +1,2 @@
-/home/diamond/priv/android/lkm_acts/lkm_acts.o
+/home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.o
 

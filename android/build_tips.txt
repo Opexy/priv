@@ -1,0 +1,94 @@
+KASAN -- Kernel Address Sanatizer -- lates
+Debug Page Memory Allocations -- (Page-level, big )
+Zero-Init: 0xAA on stack, Zero on stack, zero on heap allocation (Not app heap), zero on free
+Latency Measuring Infrastructure -- What userspace operations is blocking on what kernel operations (LatencyTop)
+Detect Hard Lockups -- CPU to loop in kernel for 10 seconds without a chance for other interrupts to run.
+Lightening sensors
+
+Media staging drivers -- "Normal" linux kernel quality level
+
+
+-- atomic operation chains -- 
+
+-- Some studying hints -- for the fainted of hearts --
+Respect is one of the best friend. If you have a hard time learning yourself, think of the person that you admire most. People who have wrote the documentations are usually admirable. However little time, progress can be made. Imagine vividly what this fits in.
+
+
+repo init -u https://android.googlesource.com/platform/manifest -b android-11.0.0_r10 --partial-clone --clone-filter=blob:limit=10M
+repo sync -c -j8
+
+
+
+// https://source.android.com/setup/build/building-kernels
+// Soong
+1.1 Setup linux repo
+
+mkdir kernel
+cd kernel
+repo init https://android.googlesource.com/kernel/manifest -b common-android11-5.4
+repo sync
+
+1.2 Download Clang toolchain(s) (it actually downloads many of those tools
+git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
+
+2. Setup build environment
+export PATH=~/clang/bin:~/kernel/prebuilts/kernel-build-tools/linux-x86/bin:~/Android/Sdk/emulator:~/android-studio/bin:$PATH; export CC=~/clang/bin/clang; export CXX=~/clang/bin/clang++
+
+3. build kernel
+LLVM=1 BUILD_CONFIG=common/build.config.gki-debug.x86_64 build/build.sh
+
+4. verify abi
+LLVM=1 BUILD_CONFIG=common/build.config.gki.x86_64 ABI_DEFINITION=abi_gki_x86_64.xml build/build_abi.sh
+
+
+Kernel Memory
+kernel/common/mm
+
+https://forum.xda-developers.com/t/reference-how-to-compile-an-android-kernel.3627297/page-41#post-84496303
+Image.gz could be zImage you looking for.
+I got arch/arm64/boot/Image.gz-dtb as compiled zImage.
+For full kernel, I unpack stock kernel with mktools,
+replace zImage,
+edit kernel.img-cmdline to userdebug and permissive,
+edit kernel.img-oslevel and -osversion according to current OS,
+delete kernel.img-avb1 check and repack kernel.
+
+
+
+https://blog.lexfo.fr/cve-2017-11176-linux-kernel-exploitation-part4.html
+
+
+
+
+Ranchu kernel
+https://www.ayrx.me/notes-on-compiling-android-kernel
+git clone https://android.googlesource.com/kernel/goldfish -b android-goldfish-5.4-dev
+export PATH=~/clang/bin:~/kernel/prebuilts/kernel-build-tools/linux-x86/bin:~/kernel/prebuilts/build-tools/linux-x86/bin:~/Android/Sdk/emulator:~/android-studio/bin:$PATH; export CC=~/clang/bin/clang; export CXX=~/clang/bin/clang++
+make x86_64_ranchu_defconfig
+make menuconfig
+make -j4
+
+
+
+https://forum.xda-developers.com/t/guide-build-mod-kernel-5-4-gki-android-11-r-kernel-ranchu-goldfish-clang-avd-google-play-store-api.4220697/#post-84421103
+cd common
+export ARCH=x86_64
+export IN_KERNEL_MODULES=1
+export KMI_GENERATION=2
+export CLANG_TRIPLE=x86_64-linux-gnu-
+export CROSS_COMPILE=x86_64-linux-androidkernel-
+export LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=$(pwd)/../prebuilts/gcc/linux-x86/x86/x86_64-linux-android-4.9/bin
+export BUILDTOOLS_PREBUILT_BIN=$(pwd)/../prebuilts/build-tools/linux-x86/bin
+DEVEXPS="LLVM=1 HOSTCC=clang HOSTCXX=clang++ CC=clang LD=ld.lld NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump READELF=llvm-readelf OBJSIZE=llvm-size STRIP=llvm-strip DEPMOD=depmod EXTRA_CMDS='' STOP_SHIP_TRACEPRINTK=1 DO_NOT_STRIP_MODULES=1 KMI_GENERATION=2 IN_KERNEL_MODULES=1"
+export KBUILD_BUILD_USER=build-user
+export KBUILD_BUILD_HOST=build-host
+export PATH=~/clang/bin:~/kernel/prebuilts/kernel-build-tools/linux-x86/bin:~/Android/Sdk/emulator:~/android-studio/bin:$PATH:$LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN:$BUILDTOOLS_PREBUILT_BIN
+export BRANCH=android11-5.4
+make $DEVEXPS mrproper
+cp ../config .config
+
+make $DEVEXPS xconfig
+time make $DEVEXPS -j$(nproc)
+
+emulator -netdelay none -netspeed full -no-snapstorage -avd Pixel_2_API_30 -no-snapshot-load -show-kernel -verbose -ranchu -kernel ~/kernel/out/android11-5.4/dist/bzImage
+

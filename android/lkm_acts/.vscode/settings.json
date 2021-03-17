@@ -4,7 +4,27 @@
     "netdevice.h": "c",
     "in.h": "c",
     "kthread.h": "c",
-    "delay.h": "c"
+    "delay.h": "c",
+    "functional": "c",
+    "thread": "c",
+    "array": "c",
+    "hash_map": "c",
+    "string_view": "c",
+    "initializer_list": "c",
+    "ranges": "c",
+    "utility": "c",
+    "mutex.h": "c",
+    "lockdep.h": "c",
+    "atomic.h": "c",
+    "mutex": "c",
+    "circ_buf.h": "c",
+    "*.tcc": "c",
+    "hash_set": "c",
+    "bitset": "c",
+    "chrono": "c",
+    "random": "c",
+    "limits": "c",
+    "algorithm": "c"
   },
   "C_Cpp.intelliSenseEngineFallback": "Enabled"
 }

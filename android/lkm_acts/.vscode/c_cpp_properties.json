@@ -3,7 +3,8 @@
         {
             "name": "Linux",
             "includePath": [
-                "/lib/modules/5.10.4-051004-generic/build/include"
+                "~/kernel/common/include",
+                "~/kernel/common"
             ],
             "defines": [],
             "compilerPath": "/usr/local/bin/clang",
