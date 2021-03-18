@@ -81,8 +81,9 @@ static int listen_thread_main(void *thread_data)
   ltd->state = THREAD_ALIVE;
   for (;;) // better than while(true) according to some
   {
+    // non blocking in the sense of not filling the BUF_MAXLEN
+    // will block when not getting a message.
     ltd->len = sock_read(ltd->sock_listen, ltd->buf, BUF_MAXLEN);
-    //ltd->len = sock_recvmsg(ltd->sock_listen, &ltd->msg, 0);
     //ltd->len = ksocket_receive(ltd->sock_listen, &ltd->addr, buf, BUF_MAXSIZE);
     sig = signal_pending(current);
     if (sig != 0) {
@@ -150,7 +151,9 @@ static void __exit lkm_acts_exit(void){
   if(ltd->state != THREAD_KILLED)
   {
     LOG_INFO_MODULE(":sending stop\n");
-    err = kthread_stop(ltd->thread);
+    send_sig(SIGKILL, ltd->thread,  1); // still need to figure out what is prio 1
+    // Warning: this Will BUSY-WAIT!!
+    err = kthread_stop(ltd->thread); // can't just do that because stuck in the wait.
     LOG_INFO_MODULE(":stop sent\n");
     if (err < 0) 
     {
@@ -167,7 +170,6 @@ static void __exit lkm_acts_exit(void){
       thread_wait_for_mask_(THREAD_KILLED);
       // kill_proc does not exists anymore...
       // kill_proc(ltd->thread->pid, SIGKILL, 1);
-      send_sig(SIGKILL, ltd->thread,  1); // still need to figure out what is prio 1
       LOG_INFO_MODULE(":succesfully killed kernel thread!\n");
       vfree(ltd);
       ltd = NULL;
@@ -193,6 +195,7 @@ static int sock_read(struct socket *sock, void *buf, int len)
 	//set_fs(KERNEL_DS);
 	//size = sock_recvmsg(sock,&msg,len,msg.msg_flags);
   size = kernel_recvmsg(sock, &msg, &kvec_, 1, len, 0);
+
 	//set_fs(oldfs);
 	return size;
 }
