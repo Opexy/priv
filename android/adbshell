@@ -1,0 +1,7 @@
+#!/usr/bin/expect
+spawn adb shell
+expect "# "
+send "cd /mnt/user\r"
+send "rmmod lkm_acts.ko\r"
+send "insmod lkm_acts.ko\r"
+interact

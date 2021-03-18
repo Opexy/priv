@@ -1,0 +1,3 @@
+adb wait-for-devices
+adb root
+adb wait-for-devices

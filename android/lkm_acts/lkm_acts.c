@@ -20,7 +20,7 @@ MODULE_DESCRIPTION("Example Kernel Module");
 MODULE_VERSION("0.01");
 
 #define LISTEN_PORT 3232
-#define BUF_MAXSIZE 63999
+#define BUF_MAXLEN 63999
 #define LOG_INFO_MODULE(...) printk(KERN_INFO  MODULE_NAME __VA_ARGS__)
 enum thread_state
 {
@@ -33,26 +33,27 @@ struct listen_thread_data
   struct task_struct  *thread;
   struct socket       *sock_listen;
   struct sockaddr_in  addr;
-  struct msghdr       msg;
   enum thread_state   state;
   int err;
   int len;
-  unsigned char buf[BUF_MAXSIZE+1];
+  unsigned char buf[BUF_MAXLEN+1];
 };
 static struct listen_thread_data *ltd;
+static int sock_read(struct socket *sock, void *buf, int len);
+
 static void thread_wait_for_mask_(enum thread_state state_mask) {
   while(ltd == NULL || 0 == (ltd->state & state_mask)){
     // Not spin-locking as no hurry to such an action.
     // Not using mutexing as no real contending writes.
     // core.c, "Don't schedule slices shorter than 10000ns", which is 10us
     // not want to sleep more than 10ms which may become noticeable.
-    usleep_range(10,10000);
+    usleep_range(100,10000);
     // may worth investigating: wait_for_completion
   }
 }
 static int listen_thread_main(void *thread_data)
 {  
-  int err, sig, iov_copied;
+  int err, sig;
   (void)thread_data;
   current->flags |= PF_NOFREEZE; // shall not be frozen...
   // daemonize(MODULE_NAME); -- 1 ref: no longer needed as later of 2.6.
@@ -77,9 +78,11 @@ static int listen_thread_main(void *thread_data)
   }
   
   LOG_INFO_MODULE( ":thread: listening on port %d\n", LISTEN_PORT);
+  ltd->state = THREAD_ALIVE;
   for (;;) // better than while(true) according to some
   {
-    ltd->len = sock_recvmsg(ltd->sock_listen, &ltd->msg, 0);
+    ltd->len = sock_read(ltd->sock_listen, ltd->buf, BUF_MAXLEN);
+    //ltd->len = sock_recvmsg(ltd->sock_listen, &ltd->msg, 0);
     //ltd->len = ksocket_receive(ltd->sock_listen, &ltd->addr, buf, BUF_MAXSIZE);
     sig = signal_pending(current);
     if (sig != 0) {
@@ -99,18 +102,15 @@ static int listen_thread_main(void *thread_data)
     {
       LOG_INFO_MODULE( ":thread: received %d bytes\n", ltd->len);
       // scaterred gather.
-      if(ltd->len > BUF_MAXSIZE) {
+      if(ltd->len > BUF_MAXLEN) {
         LOG_INFO_MODULE( ":thread: message too large: %d bytes\n", ltd->len);
-        ltd->len = BUF_MAXSIZE;
-      }
-      iov_copied = (int)copy_from_iter(ltd->buf, ltd->len, &ltd->msg.msg_iter);
-      if(iov_copied != ltd->len) {
-        LOG_INFO_MODULE( ":thread: meserror: iov_copied %d != ltd->len %d\n", iov_copied, ltd->len);
+        ltd->len = BUF_MAXLEN;
       }
       printk("data: %s\n", ltd->buf);
     }
     else {
-      usleep_range(10, 10000);
+      LOG_INFO_MODULE( ":thread: len=0\n");
+      usleep_range(100, 10000);
     } // not optimizing for compiler.
   }
 
@@ -136,7 +136,6 @@ static int __init lkm_acts_init(void)
     ltd = NULL;
     return -ENOMEM;
   }
-
   return 0;
 }
 
@@ -148,11 +147,16 @@ static void __exit lkm_acts_exit(void){
   // which may happen if calling kthread_create instead of kthread_run
   // or 0 for success
   thread_wait_for_mask_(THREAD_ALIVE | THREAD_KILLED);
-    if(ltd->state != THREAD_KILLED){
+  if(ltd->state != THREAD_KILLED)
+  {
+    LOG_INFO_MODULE(":sending stop\n");
     err = kthread_stop(ltd->thread);
-    if (err < 0) {
+    LOG_INFO_MODULE(":stop sent\n");
+    if (err < 0) 
+    {
       LOG_INFO_MODULE(":unknown error %d while trying to terminate kernel thread\n",-err);
-      if(ltd->sock_listen != NULL){
+      if(ltd->sock_listen != NULL)
+      {
         sock_release(ltd->sock_listen);
         ltd->sock_listen = NULL;
       }
@@ -161,11 +165,36 @@ static void __exit lkm_acts_exit(void){
     else 
     {
       thread_wait_for_mask_(THREAD_KILLED);
+      // kill_proc does not exists anymore...
+      // kill_proc(ltd->thread->pid, SIGKILL, 1);
+      send_sig(SIGKILL, ltd->thread,  1); // still need to figure out what is prio 1
       LOG_INFO_MODULE(":succesfully killed kernel thread!\n");
       vfree(ltd);
       ltd = NULL;
     }
   }
+}
+
+static int sock_read(struct socket *sock, void *buf, int len)
+{
+	struct msghdr msg = {};
+	//struct iovec iov;
+  // a vector is a pointer + length. kernel vector's address is in kernel space.
+  struct kvec kvec_; 
+	int size = 0;
+
+	if (sock->sk==NULL)
+		return 0;
+
+	kvec_.iov_base = buf;
+	kvec_.iov_len = len;
+
+	//oldfs = get_fs(); Everyone is saying goodbye to this!
+	//set_fs(KERNEL_DS);
+	//size = sock_recvmsg(sock,&msg,len,msg.msg_flags);
+  size = kernel_recvmsg(sock, &msg, &kvec_, 1, len, 0);
+	//set_fs(oldfs);
+	return size;
 }
 
 module_init(lkm_acts_init);
