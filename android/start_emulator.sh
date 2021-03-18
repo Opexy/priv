@@ -1,0 +1,1 @@
+emulator -netdelay none -netspeed full -no-snapstorage -avd Pixel_2_API_30 -no-snapshot-load -show-kernel -verbose -ranchu -kernel ~/kernel/common/arch/x86/boot/bzImage  -writable-system -wipe-data -selinux permissive -qemu -S -s
