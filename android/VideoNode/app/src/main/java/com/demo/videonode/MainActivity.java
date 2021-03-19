@@ -69,8 +69,6 @@ public class MainActivity extends AppCompatActivity{
       textPaint.setTextSize(16 * getResources().getDisplayMetrics().density);
       textPaint.setColor(0xFF000000);
       //String procVersionStr = readLine( FILENAME_PROC_VERSION);
-
-
     }
     public PresentationView(Context context) {
       super(context);
@@ -166,18 +164,20 @@ public class MainActivity extends AppCompatActivity{
             videoListScrollView.smoothScrollTo(0, y);
             //videoListScrollView.scrollToDescendant(node.frame);
           }
+          // Fading in for begin edit.
           videoEditFrameLayout.setAlpha(0.0f);
+          // Initial position -- to the bottom
           videoEditFrameLayout.setTranslationY(400.0f);
           videoEditFrameLayout.setVisibility(View.VISIBLE);
           videoListAddButton.setVisibility(View.INVISIBLE);
-          videoEditFrameLayout.animate().alpha(1.0f).translationY(0.0f).setDuration(200)
+          videoEditFrameLayout.animate().alpha(1.0f).translationY(0.0f).setDuration(300)
                   .setListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(Animator animation) {
                       super.onAnimationEnd(animation);
                       videoEditFrameLayout.clearAnimation();
                     }
-                  });
+          });
         }
       });
     }
@@ -216,7 +216,9 @@ public class MainActivity extends AppCompatActivity{
     videoEditButtonCancel.setOnClickListener(new View.OnClickListener() {
       @Override
       public void onClick(View v) {
-        videoEditFrameLayout.animate().translationY(400.0f).setDuration(200).
+        videoListAddButton.setVisibility(View.INVISIBLE);
+        videoEditButtonCancel.animate().translationX(800.0f).setDuration(300);
+        videoEditFrameLayout.animate().alpha(0.0f).setDuration(300).
                 setListener(new AnimatorListenerAdapter() {
           @Override
           public void onAnimationEnd(Animator animation) {
@@ -224,6 +226,7 @@ public class MainActivity extends AppCompatActivity{
             videoListAddButton.setVisibility(View.VISIBLE);
             videoEditFrameLayout.setVisibility(View.GONE);
             videoEditFrameLayout.setTranslationY(0.0f);
+            videoEditButtonCancel.setTranslationX(0.0f);
           }
         });
 
