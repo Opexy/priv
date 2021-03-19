@@ -1,1 +1,0 @@
-cmd_/home/diamond/priv/android/lkm_acts/Module.symvers := sed 's/ko$$/o/' /home/diamond/priv/android/lkm_acts/modules.order | scripts/mod/modpost  -a   -o /home/diamond/priv/android/lkm_acts/Module.symvers -e -i Module.symvers   -T -
