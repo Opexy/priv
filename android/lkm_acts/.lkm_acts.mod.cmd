@@ -1,1 +1,0 @@
-cmd_/home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.mod := { echo  /home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.o;  echo; } > /home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.mod

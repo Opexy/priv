@@ -1,0 +1,4 @@
+if [ ! -d /tmp/gendb_build ]; then
+  mkdir /tmp/gendb_build
+  sudo mount -o bind /tmp/gendb_build build
+fi

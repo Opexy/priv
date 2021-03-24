@@ -1,1 +1,0 @@
-cmd_/home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.lto.o := ld.lld  -r -o /home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.lto.o  --whole-archive /home/diamond/priv/android/lkm_acts/droid_build/..//lkm_acts.o

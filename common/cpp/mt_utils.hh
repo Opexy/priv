@@ -9,10 +9,12 @@
 #include <cassert>
 #include <cstdint>
 #include <oneapi/tbb.h>
+#include <cstddef>
 #define SIZE_INVALID (-1ULL)
 #ifndef HAS_AVX2
 #define HAS_AVX2 1
 #endif
+
 
 #define _inline inline __attribute__((always_inline))
 static constexpr int POS_INVALID = -1;
