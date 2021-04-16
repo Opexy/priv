@@ -1,0 +1,30 @@
+syntax = "proto3";
+import "google/protobuf/timestamp.proto";
+
+message HmsgProcStart {
+  int64 pid = 1;
+  int64 ppid = 2;
+  repeated string argv = 3;
+};
+
+message HmsgProcEnd {
+  int64 pid = 1;
+};
+
+message HmsgFileOpen {
+  int64 pid = 1;
+  string path = 2;
+};
+
+message HmsgExit {
+};
+
+
+message Hmsg {
+  oneof msg {
+    HmsgProcStart proc_start = 2;
+    HmsgProcEnd   proc_end = 3;
+    HmsgFileOpen  file_open = 4;
+    HmsgExit      exit = 5;
+  };
+};

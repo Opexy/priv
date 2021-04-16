@@ -11,7 +11,7 @@
 #define COUNT 104857600
 
 #define BM_MT_MAP_1
-//#define BM_ROBIN_MAP
+#define BM_TBB_MAP
 #define BM_DENSE_MAP
 #define BM_CUDA_MAP
 
@@ -20,7 +20,7 @@
 auto seed = std::time(0);
 #define SRAND std::srand(seed)
 
-#define NTH 1
+#define NTH 4
 
 template <int CNT, class Ftn>
 static void run(Ftn&&ftn){

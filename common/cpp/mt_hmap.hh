@@ -9,6 +9,8 @@ struct alignas(64) hmap32_node {
   int32_t mNext = 0;
   uint32_t mData[7];
 };
+template <typename _Size>
+inline _Size alignup(_Size num, int align) { return (num + align - 1)/align * align;}
 #define ASSFAIL(cond) do {if(cond)(*(int *)1) = 1;} while (0);
 // Hash Table, make sense without deleting; rapid deleting and re-inserting is not considered here.
 // Rapid modification is furtile without external synchronization.
@@ -116,7 +118,7 @@ private:
       next->mCount = 0;
       mk_atomic(iter.bucket->mNext).store(nodes.emplace_back() - nodes.begin());
     } else {
-      wait<1000>(iter.bucket->mNext);
+      atom_wait<1000>(iter.bucket->mNext);
     }
   }
 

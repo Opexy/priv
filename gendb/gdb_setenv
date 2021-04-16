@@ -1,0 +1,3 @@
+set environment LD_PRELOAD=libhook.so
+set environment LIBHOOK_MQ_NAME=/tmp_6b8b4567
+

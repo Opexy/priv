@@ -11,9 +11,12 @@ namespace flow {
 // key space -- also flow space -- a space have defined io.
 typedef uint32_t ksp_id;
 typedef struct _keysp *keysp;
-typedef keysp schema;
+typedef struct _keysp_schema *keysp_schema;
+
+typedef struct _ksp_file *ksp_file;
 
 typedef std::initializer_list<keysp> const & args_keysp;
+
 
 
 struct _stor;
@@ -32,6 +35,7 @@ typedef std::initializer_list<val_init> args_val;
 
 struct ksp_child;
 typedef std::initializer_list<ksp_child> ksp_args;
+
 
 struct _kval;
 typedef _kval *kval;

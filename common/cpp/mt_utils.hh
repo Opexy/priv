@@ -66,7 +66,7 @@ void unlock(Ty *atom, const Ty &val){
 }
 
 template <int retries_before_sleep = 100, typename Ty, Ty INVALID_VAL = (Ty)-1>
-Ty wait(Ty &atom){
+Ty atom_wait(Ty &atom){
   auto ret = mk_atomic(atom).load();
   int ii = 0;
   while(ret == INVALID_VAL) {
@@ -314,4 +314,4 @@ static constexpr uint8_t VERB_UPDATE_IF_EXISTS = 2;
 static constexpr uint8_t VERB_SEARCH = 3;
 
 #include "mt_hmap.hh"
-#include "mt_unidata.hh"
+//#include "mt_unidata.hh"
