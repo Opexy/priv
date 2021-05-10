@@ -10,7 +10,9 @@
 #include "tokener.hpp"
 #define LOG(...) fmt::print(__VA_ARGS__)
 
+
 using namespace flow;
+#if 0
 struct flow_schema {
   keysp_schema s;
   keysp pathver;
@@ -41,6 +43,7 @@ flow_schema::flow_schema(){
 
   create_stor("/tmp/test", s);
 }
+#endif
 
 // helper function here.
 void add_compilation_cmd(strarg strcmd){
@@ -65,7 +68,7 @@ int callback (struct dl_phdr_info *info,
 }
 
 int main(int argc, char **argv, char **envpp) {
-  flow_schema fs = flow_schema();
+  //flow_schema fs = flow_schema();
 
   if(argc > 1) {
     auto *server = create_hook_server(envpp);

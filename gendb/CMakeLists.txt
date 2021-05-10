@@ -26,7 +26,7 @@ message(CURRENT_BINARY_DIR=${CURRENT_BINARY_DIR})
 add_library(hook SHARED libhook.cpp hmsg.pb.cc)
 target_link_libraries(hook PUBLIC dl rt protobuf fmt stdc++)
 
-add_library(gendb flow.cpp mt_utils.cc mt_mmap.cpp)
+add_library(gendb mt_utils.cc mt_mmap.cpp)
 target_link_libraries(gendb PUBLIC tbb hook)
 
 add_executable(client_compiler client_compiler_main.cpp)

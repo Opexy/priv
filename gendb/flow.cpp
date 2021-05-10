@@ -205,7 +205,6 @@ void compute_schema(keysp ksp) {
   compute_ksp(ksp);
 }
 
-
 struct offlen {
   uint32_t offset;
   uint32_t length;
@@ -280,11 +279,38 @@ inline _stor_file::_stor_file(stor st, int idx)
   m_file = mm_open(m_path.c_str(), m_stor->m_hdr->ctrls[idx]);
 }
 
-
 stor create_stor(strarg stor_path, keysp_schema schema) {
   return new _stor(stor_path, schema);
 }
+// block-executable
+enum bex_opc {
+  SCR_UNDEFINED,
+  SCR_KARG_COMPOUND,
+  SCR_KARG_IDX,
+  SCR_KARG_VAL_PATH,
+  SCR_KARG_VAL_UI64,
+  SCR_KARG_VAL_DOUBLE
+};
+struct bex {
+  bex_opc *m_mgr;
+  uint32_t m_offset;
+  inline void *data();
+};
+typedef struct _bex_mgr *bexmgr;
+arg bex_mgr(uint32_t size) {};
+arg argmgr
 
+struct _arg {
+  arg_opc m_opc;
+  int m_px; // parent
+  int m_cx; // child
+  int m_nx; // next element; 
+};
+struct _argmgr {
+  auto alloc = argmgr_alloc;
+
+  (uint32_t offset);
+};
 
 enum karg_type {
   KA_UNDEFINED,
@@ -294,7 +320,7 @@ enum karg_type {
   KA_VAL_UI64,
   KA_VAL_DOUBLE
 };
-struct evs_opcode {
+struct _evs_opcode {
 };
 typedef struct _eve *eve;
 struct _evscript {
@@ -305,8 +331,8 @@ struct _evscript {
     int m_nx; // next element; 
   };
   std::vector<evsnode> nodes;
-  
 };
+
 struct _eve{
   exer *m_exer;
   int eve_node;
@@ -335,10 +361,8 @@ struct proc_inserter {
   }
 };
 int test(){
-  
   eve script;
-
-  script.set(proc, compound(set(proc_parent, ), set(), set()))
+  //script.set(proc, compound(set(proc_parent, ), set(), set()))
 }
 
 // evaluation entity

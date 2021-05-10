@@ -133,7 +133,6 @@ hook_server *create_hook_server(char **envpp){
           }
         }
         else if(EMSGSIZE == errno) {
-          LOG("msg size!\n");
           struct mq_attr attr;
           mq_getattr(mqd, &attr);
           //rawmsg_.set_msg_sz(attr.mq_msgsize);
