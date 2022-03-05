@@ -3,13 +3,38 @@
 #include "pica_util.h"
 #include "pica_msg.h"
 
+enum MessageStatus {
+  kMessageInit = 0,
+  kMessageCanRead = 1,
+  kMessageDoneRead = 2,
+};
+class MessageHeader{
+
+};
+class CircularMessageBuffer {
+  std::atomic<size_t> &writer_tip;
+  std::atomic<size_t> &reader_tip;
+  std::atomic<size_t> &done_tip;
+public:
+  MessageHeader Allocate(size_t size){
+
+  }
+  void BeginRead(size_t offset) {
+
+  }
+  void BeginWrite(size_t offset, size_t size) {
+
+  }
+
+};
+
 namespace pica{
 enum MsgStatus {
   kMsgInit = 0,
   kMsgReady = 1,
-  kMsgProcessing = 2,
+  kMsgProcessing = 2, // really a bitmask.
   kMsgDone = 4, // head can advance only with kMsgReady.
-  kMsgSkip = 5,
+  kMsgSkip = 5, // TODO: combine with kMsgProcessing ? or not.
 };
 constexpr int kMsgMask = 0x7;
 constexpr int kMsgBits = 3;
@@ -36,15 +61,19 @@ class RingBuffer {
   inline void TryAdvanceHead(){
     while(true) {
       int64_t head = head_;
-      if(head >= std::min(tip_, tail_ + sz_buff_)) {
-        assert(head == tail_ + sz_buff_ || head == tip_);
-        break;
-      }
+      //if(head >= std::min(tip_, tail_ + sz_buff_)) {
+      //  assert(head == tail_ + sz_buff_ || head == tip_);
+      //  break;
+      //}
       
       EntryHdr hdr = HdrAt(head);
       auto status = hdr & kMsgMask;
       if((status == kMsgReady) || (status  == kMsgSkip)) {
+        auto sz = hdr >> kMsgBits;
         auto sz_align_8 = align_up(hdr>>kMsgBits, 8);
+        if(false == mk_atomic(HdrAt(head)).compare_exchange_strong(hdr, (sz << kMsgBits) | kMsgProcessing)){
+          break;
+        }
         if(false == mk_atomic(head_).compare_exchange_strong(
           head, head + sz_align_8)) {
           break;
@@ -73,6 +102,9 @@ class RingBuffer {
             break;
         }
       }
+      else {
+        break;
+      }
     }
   }
 
@@ -82,10 +114,11 @@ class RingBuffer {
     int64_t offset;
     int32_t skip; // amount to skip
     int32_t size; // size (include header of the entry)
+    int32_t DataSize(){return size - sizeof(EntryHdr);}
   };
 
   RingBuffer(void *buff, uint32_t size, int64_t &head, int64_t &tip, int64_t &tail, int64_t &read):
-    buff_(buff), sz_buff_(size), head_(head), tip_(tip), tail_(tail), read_(read) {}
+    buff_(buff), sz_buff_(size), head_(head = 0), tip_(tip = 0), tail_(tail = 0), read_(read = 0) {}
   void *OffsetData(int64_t offset) {
     return (char *)buff_ + OffsetIndex(offset);
   }
@@ -97,9 +130,9 @@ class RingBuffer {
   inline uint32_t &HdrAt(int64_t offset) {
     return *(uint32_t *)OffsetData(offset);
   }
-  inline uint32_t SetHdr(int64_t offset, int32_t size, MsgStatus status) {
-    assert(status < 4);
-    HdrAt(offset) = (uint32_t)size << 2 | status;
+  inline void SetHdr(int64_t offset, int32_t size, MsgStatus status) {
+    assert(size);
+    HdrAt(offset) = ((uint32_t)size << kMsgBits) | status;
   }
 
   void WaitToWriteOffset(int64_t offset) {
@@ -123,7 +156,8 @@ class RingBuffer {
       ret.offset = tip_;
       tail = OffsetTail(ret.offset);
       to_alloc = tail < sz_align ? sz_align + tail : sz_align;
-    } while(false == mk_atomic(tip_).compare_exchange_strong(tip_, tip_+to_alloc));
+    } while(false == mk_atomic(tip_).compare_exchange_strong(ret.offset, tip_+to_alloc));
+    ret.skip = tail < sz_align ? tail : 0;
     return ret;
   }
 
@@ -133,6 +167,7 @@ class RingBuffer {
       SetHdr(entry.offset, entry.skip, kMsgSkip);
       TryAdvanceHead(); // Basically throw away this piece of message.
       entry.offset += entry.skip;
+      entry.skip = 0;
     }
     WaitToWriteOffset(entry.offset + entry.size - 1);
     SetHdr(entry.offset, entry.size, kMsgInit);
@@ -143,7 +178,11 @@ class RingBuffer {
     TryAdvanceHead();
   }
 
+  inline bool HasMore(){
+    return !(read_ >= head_);
+  }
   inline bool TryFetch(Entry &entry){
+
     while(true) {
       auto read = read_;
       if(read >= head_) {
@@ -151,16 +190,24 @@ class RingBuffer {
       }
       auto hdr = HdrAt(read);
       auto status = hdr & kMsgMask;
-      if(status == kMsgSkip || status == kMsgReady) {
+      assert(status == kMsgSkip || status == kMsgProcessing);
+      if(status == kMsgSkip || status == kMsgProcessing) {
         auto sz_align = align_up(hdr >> kMsgBits, 8);
+        assert(sz_align);
         if(true == mk_atomic(read_).compare_exchange_strong(read, read + sz_align)) {
-          if(status == kMsgReady) {
+          if(status == kMsgProcessing) {
+            assert(entry.skip == 0); // TODO:here, need to check entry.size is properly set when skipped.
+            entry.skip = 0;
             entry.offset = read;
             entry.size = hdr >> kMsgBits;
+            assert(entry.size == 36);
             return true;
-          } else if(status == kMsgBits) {
+          } else if(status == kMsgSkip) {
+            auto tail1 = tail_;
             SetHdr(read, hdr>>kMsgBits, kMsgDone);
-            TryAdvanceTail();        
+            TryAdvanceTail();
+            auto tail2 = tail_;
+            assert(tail1 != tail2);
           }
         } else {
           continue;
@@ -169,8 +216,11 @@ class RingBuffer {
     }
   }
   inline void EntryEndRead(Entry &entry) {
+    auto tail1 = tail_;
     SetHdr(entry.offset, entry.size, kMsgDone);
     TryAdvanceTail();
+    auto tail2 = tail_;
+    assert(tail1 != tail2);
   }
 };
 

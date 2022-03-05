@@ -9,6 +9,8 @@ inc = include_directories('include')
 
 subdir('include')
 
+benchmark_dep = dependency('benchmark')
+thread_dep = dependency('threads')
 
 libpica_mem_sources = 'mem/pica_mem.cpp'
 libpica_mem = shared_library('pica_mem', libpica_mem_sources, 
@@ -16,7 +18,8 @@ libpica_mem = shared_library('pica_mem', libpica_mem_sources,
 
 test_pica_mem_sources = 'tests/test_pica_mem.cpp'
 test_pica_mem = executable('test_pica_mem', test_pica_mem_sources, 
-  include_directories:inc, link_with:libpica_mem)
+  include_directories:inc, dependencies : [benchmark_dep, thread_dep],
+link_with:[libpica_mem])
 
 
 #subdir(msg)

@@ -1,0 +1,4 @@
+
+void writeToFile();
+
+void readFromFile();

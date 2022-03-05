@@ -2,7 +2,9 @@
   "files.associations": {
     "*.recipe": "python",
     "atomic": "cpp",
-    "ranges": "cpp"
+    "ranges": "cpp",
+    "thread": "cpp",
+    "array": "cpp"
   },
   "output-link-to-file.languagesIds": [
     "output-link-to-file",
